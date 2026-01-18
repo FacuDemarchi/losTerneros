@@ -26,5 +26,5 @@ export type ClosedTicket = {
   timestamp: number
   items: TicketItem[]
   total: number
-  type: 'normal' | 'B'
+  type: 'normal' | 'B' | 'A'
 }

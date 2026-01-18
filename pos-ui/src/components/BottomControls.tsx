@@ -1,5 +1,5 @@
 type BottomControlsProps = {
-  onCloseTicket: (type?: 'normal' | 'B') => void
+  onCloseTicket: (type?: 'normal' | 'B' | 'A') => void
   onSelectNormal: () => void
 }
 
@@ -11,6 +11,9 @@ export function BottomControls({ onCloseTicket, onSelectNormal }: BottomControls
       </button>
       <button className="bottom-button bottom-button-large" onClick={() => onCloseTicket('B')}>
         Tiquet B
+      </button>
+      <button className="bottom-button bottom-button-large" onClick={() => onCloseTicket('A')}>
+        Tiquet A
       </button>
       <button className="bottom-button bottom-button-small" onClick={onSelectNormal}>
         Mostrar Precios

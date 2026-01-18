@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd pos-ui && pnpm install && pnpm build",
+  "buildCommand": "cd pos-ui && npm install -g pnpm@latest && pnpm install && pnpm build",
   "outputDirectory": "pos-ui/dist",
   "framework": "vite",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]

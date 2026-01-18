@@ -156,7 +156,7 @@ function App() {
     })
   }
 
-  function handleCloseTicket(type: 'normal' | 'B' = 'normal') {
+  function handleCloseTicket(type: 'normal' | 'B' | 'A' = 'normal') {
     if (ticketItems.length === 0) return
 
     const newTicket: ClosedTicket = {
