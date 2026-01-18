@@ -20,9 +20,10 @@ export function WeightInputModal({
     if (isOpen) {
       setValue('')
       // Small timeout to ensure the modal is rendered before focusing
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         inputRef.current?.focus()
-      }, 50)
+      }, 100)
+      return () => clearTimeout(timer)
     }
   }, [isOpen])
 
@@ -43,7 +44,7 @@ export function WeightInputModal({
   }
 
   return (
-    <div className="history-modal-overlay" onClick={onClose}>
+    <div className="weight-modal-overlay" onClick={onClose}>
       <div
         className="weight-modal-content"
         onClick={(e) => e.stopPropagation()}
@@ -60,6 +61,7 @@ export function WeightInputModal({
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="0.000"
+            autoFocus
           />
           <div className="weight-modal-buttons">
             <button type="button" className="weight-modal-cancel" onClick={onClose}>

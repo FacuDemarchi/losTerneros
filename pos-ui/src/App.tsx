@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useLocalStorage } from './hooks/useLocalStorage'
 import { BottomControls } from './components/BottomControls'
 import { CategoryStrip } from './components/CategoryStrip'
 import { ProductsGrid } from './components/ProductsGrid'
@@ -11,8 +12,8 @@ import './App.css'
 
 function App() {
   const [selectedCategoryId, setSelectedCategoryId] = useState(categories[0]?.id)
-  const [ticketItems, setTicketItems] = useState<TicketItem[]>([])
-  const [closedTickets, setClosedTickets] = useState<ClosedTicket[]>([])
+  const [ticketItems, setTicketItems] = useLocalStorage<TicketItem[]>('pos-current-ticket', [])
+  const [closedTickets, setClosedTickets] = useLocalStorage<ClosedTicket[]>('pos-closed-tickets', [])
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [weighingProduct, setWeighingProduct] = useState<Product | null>(null)
 

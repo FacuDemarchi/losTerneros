@@ -25,6 +25,7 @@ function formatQuantity(item: TicketItem) {
   return item.quantity.toFixed(3)
 }
 
+/*
 function getQuantityStep(item: TicketItem) {
   if (item.unitType === 'unit') {
     return 1
@@ -32,12 +33,13 @@ function getQuantityStep(item: TicketItem) {
 
   return 0.001
 }
+*/
 
 export function TicketPanel({
   items,
   grandTotal,
   totalQuantity,
-  onQuantityChange,
+  // onQuantityChange,
   onRemoveItem,
   onOpenHistory,
 }: TicketPanelProps) {
