@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useLocalStorage } from '../hooks/useLocalStorage'
 import { BottomControls } from '../components/BottomControls'
 import { CategoryStrip } from '../components/CategoryStrip'
@@ -8,6 +8,7 @@ import { HistoryModal } from '../components/HistoryModal'
 import { WeightInputModal } from '../components/WeightInputModal'
 import type { TicketItem, Product, ClosedTicket, Category } from '../types'
 import { useNavigate } from 'react-router-dom'
+import { api } from '../services/api'
 import '../App.css'
 
 interface POSPageProps {
@@ -21,6 +22,17 @@ export function POSPage({ categories }: POSPageProps) {
   const [closedTickets, setClosedTickets] = useLocalStorage<ClosedTicket[]>('pos-closed-tickets', [])
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [weighingProduct, setWeighingProduct] = useState<Product | null>(null)
+
+  // Cargar historial de ventas del backend al iniciar
+  useEffect(() => {
+    api.getSales().then(sales => {
+      if (sales && sales.length > 0) {
+        // Ordenar por fecha descendente si no vienen ordenadas
+        const sortedSales = sales.sort((a, b) => b.timestamp - a.timestamp)
+        setClosedTickets(sortedSales)
+      }
+    })
+  }, [])
 
   const selectedCategory = useMemo(
     () => categories.find((c) => c.id === selectedCategoryId) ?? categories[0],
@@ -170,6 +182,9 @@ export function POSPage({ categories }: POSPageProps) {
 
     setClosedTickets((prev) => [newTicket, ...prev])
     setTicketItems([])
+
+    // Guardar venta en backend
+    api.saveSale(newTicket)
   }
 
   function handleRemoveItem(productId: string) {
