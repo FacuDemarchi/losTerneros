@@ -1,0 +1,289 @@
+.config-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 20px;
+  background-color: #00163a;
+  color: white;
+  overflow-y: auto;
+}
+
+.config-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+.config-back-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  border: 1px solid #556;
+  color: #aaa;
+  padding: 5px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.config-back-icon-btn:hover {
+  background-color: #334;
+  color: white;
+  border-color: #778;
+}
+
+.config-category-btn {
+  background-color: #334;
+  border: 1px solid #556;
+  color: #ccc;
+  padding: 6px 10px;
+  font-size: 13px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.config-category-btn:hover {
+  background-color: #445;
+  color: white;
+}
+
+.config-category-btn.active {
+  background-color: #b00020;
+  border-color: #d00030;
+  color: white;
+}
+
+.config-table-container {
+  background-color: #0a1f44;
+  border: 1px solid #334;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.config-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.config-table th {
+  background-color: #00102a;
+  color: #aaa;
+  font-weight: 600;
+  text-align: left;
+  padding: 12px 16px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 1px solid #334;
+}
+
+.config-table td {
+  padding: 8px 16px;
+  border-bottom: 1px solid #1a2f54;
+}
+
+.config-table tr:hover {
+  background-color: #1a2f54;
+}
+
+.config-input {
+  background: transparent;
+  border: 1px solid transparent;
+  color: white;
+  padding: 6px 8px;
+  border-radius: 4px;
+  width: 100%;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.config-input:focus {
+  background-color: #00102a;
+  border-color: #4a90e2;
+  outline: none;
+}
+
+.config-input:hover {
+  background-color: #152a50;
+}
+
+.config-select {
+  background-color: #00102a;
+  border: 1px solid #334;
+  color: white;
+  padding: 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* Data Management Section */
+.data-management-section {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #0a1f44;
+  border: 1px solid #334;
+  border-radius: 8px;
+  flex-shrink: 0;
+  margin-bottom: 20px;
+}
+
+.data-management-section h3 {
+  margin: 0 0 15px 0;
+  font-size: 16px;
+  color: #ccc;
+  border-bottom: 1px solid #334;
+  padding-bottom: 8px;
+}
+
+.data-actions {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.data-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+    min-width: 250px;
+}
+
+.data-group-title {
+    font-size: 14px;
+    color: #aaa;
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+.data-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+  justify-content: center;
+}
+
+.export-btn {
+  background-color: #2e7d32;
+  color: white;
+}
+
+.export-btn:hover {
+  background-color: #1b5e20;
+}
+
+.import-btn {
+  background-color: #1976d2;
+  color: white;
+}
+
+.import-btn:hover {
+  background-color: #0d47a1;
+}
+
+.import-status {
+  margin: 10px 0 0 0;
+  font-size: 13px;
+  color: #4caf50;
+}
+
+/* Login Screen */
+.login-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background-color: #00163a;
+}
+
+.login-card {
+  background-color: #0a1f44;
+  padding: 40px;
+  border-radius: 12px;
+  border: 1px solid #334;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.login-title {
+  color: white;
+  font-size: 24px;
+  margin: 0;
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.login-input {
+  background-color: #00102a;
+  border: 1px solid #334;
+  color: white;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.login-input:focus {
+  border-color: #4a90e2;
+  outline: none;
+}
+
+.login-btn {
+  background-color: #b00020;
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.login-btn:hover {
+  background-color: #d00030;
+  color: white;
+}
+
+.back-btn {
+  background: transparent;
+  border: 1px solid #334;
+  color: #aaa;
+  padding: 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.back-btn:hover {
+  background-color: #334;
+  color: white;
+}
+
+.error-msg {
+  color: #ff5252;
+  text-align: center;
+  font-size: 14px;
+  margin: 0;
+}

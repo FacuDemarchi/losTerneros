@@ -4,12 +4,16 @@ type CategoryStripProps = {
   categories: Category[]
   selectedCategoryId: string | undefined
   onSelectCategory: (categoryId: string) => void
+  onOpenTicket?: () => void
+  totalQuantity?: number
 }
 
 export function CategoryStrip({
   categories,
   selectedCategoryId,
   onSelectCategory,
+  onOpenTicket,
+  totalQuantity = 0,
 }: CategoryStripProps) {
   return (
     <div className="pos-category-strip">
@@ -28,6 +32,14 @@ export function CategoryStrip({
           </button>
         ))}
       </div>
+      {onOpenTicket && (
+        <button 
+            className="mobile-ticket-toggle"
+            onClick={onOpenTicket}
+        >
+            Ver Ticket ({totalQuantity.toFixed(0)})
+        </button>
+      )}
     </div>
   )
 }

@@ -7,6 +7,7 @@ type TicketPanelProps = {
   onQuantityChange: (productId: string, value: string) => void
   onRemoveItem: (productId: string) => void
   onOpenHistory: () => void
+  onClose?: () => void
 }
 
 
@@ -42,15 +43,23 @@ export function TicketPanel({
   // onQuantityChange,
   onRemoveItem,
   onOpenHistory,
+  onClose,
 }: TicketPanelProps) {
   return (
     <div className="pos-side">
       <div className="pos-total-panel">
         <div className="pos-total-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>Monto</span>
-          <button className="history-toggle-button" onClick={onOpenHistory}>
-            Ver Historial
-          </button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button className="history-toggle-button" onClick={onOpenHistory}>
+                Ver Historial
+            </button>
+            {onClose && (
+                <button className="ticket-close-button" onClick={onClose}>
+                ✕
+                </button>
+            )}
+          </div>
         </div>
         <div className="pos-total-value">{formatMoney(grandTotal)}</div>
       </div>

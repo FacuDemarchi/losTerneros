@@ -23,13 +23,14 @@ function formatDate(timestamp: number) {
 }
 
 export function HistoryModal({ isOpen, onClose, tickets }: HistoryModalProps) {
-  const [filterB, setFilterB] = useState(false)
+  const [filterMode, setFilterMode] = useState<'all' | 'A' | 'B'>('all')
 
   if (!isOpen) return null
 
-  const displayedTickets = filterB
-    ? tickets.filter((t) => t.type === 'B')
-    : tickets
+  const displayedTickets = tickets.filter((t) => {
+    if (filterMode === 'all') return true
+    return t.type === filterMode
+  })
 
   const totalDay = displayedTickets.reduce((sum, t) => sum + t.total, 0)
 
@@ -41,10 +42,17 @@ export function HistoryModal({ isOpen, onClose, tickets }: HistoryModalProps) {
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
               className="close-history-button"
-              style={{ backgroundColor: filterB ? '#ffee58' : '#fff' }}
-              onClick={() => setFilterB(!filterB)}
+              style={{ backgroundColor: filterMode === 'B' ? '#ffee58' : '#fff' }}
+              onClick={() => setFilterMode(filterMode === 'B' ? 'all' : 'B')}
             >
               Solo B
+            </button>
+            <button
+              className="close-history-button"
+              style={{ backgroundColor: filterMode === 'A' ? '#ffee58' : '#fff' }}
+              onClick={() => setFilterMode(filterMode === 'A' ? 'all' : 'A')}
+            >
+              Solo A
             </button>
             <button className="close-history-button" onClick={onClose}>
               Cerrar
@@ -62,6 +70,9 @@ export function HistoryModal({ isOpen, onClose, tickets }: HistoryModalProps) {
                     <span className="history-time">{formatDate(ticket.timestamp)}</span>
                     {ticket.type === 'B' && (
                       <span style={{ fontSize: '10px', color: '#b00020', fontWeight: 'bold' }}>TIQUET B</span>
+                    )}
+                    {ticket.type === 'A' && (
+                      <span style={{ fontSize: '10px', color: '#1976d2', fontWeight: 'bold' }}>TIQUET A</span>
                     )}
                   </div>
                   <span className="history-total">${formatMoney(ticket.total)}</span>

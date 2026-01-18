@@ -197,6 +197,7 @@
   border: 2px solid #b78b95;
   padding: 4px;
   flex-shrink: 0;
+  position: relative;
 }
 
 /* Numbers row removed */
@@ -383,4 +384,110 @@
 
 .ticket-footer-value {
   font-weight: 600;
+}
+
+/* RESPONSIVE STYLES */
+
+.mobile-ticket-toggle {
+  display: none;
+}
+
+.ticket-close-button {
+  display: none;
+}
+
+.pos-side-overlay {
+  display: none;
+}
+
+.pos-side-wrapper {
+  height: 100%;
+  overflow: hidden;
+}
+
+@media (max-width: 900px) {
+  .pos-root {
+    grid-template-columns: 1fr;
+    position: relative;
+  }
+
+  .pos-main {
+    width: 100%;
+  }
+  
+  .pos-category-buttons {
+    grid-template-columns: repeat(4, 1fr); /* Reduce columns on mobile */
+  }
+  
+  .pos-products-grid {
+    grid-template-columns: repeat(3, 1fr); /* Reduce columns on mobile */
+  }
+
+  .mobile-ticket-toggle {
+    display: block;
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    z-index: 100;
+    padding: 6px 12px;
+    background-color: #b00020;
+    color: white;
+    border: 1px solid white;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  }
+
+  .pos-side-wrapper {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 85%;
+    max-width: 350px;
+    height: 100%;
+    z-index: 2000;
+    transform: translateX(100%);
+    transition: transform 0.3s ease-in-out;
+    background-color: #dcdcdc;
+    box-shadow: -4px 0 10px rgba(0,0,0,0.5);
+  }
+
+  .pos-side-wrapper.open {
+    transform: translateX(0);
+  }
+
+  .pos-side {
+    height: 100%;
+  }
+
+  .pos-side-overlay {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0,0,0,0.5);
+    z-index: 1500;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+
+  .pos-side-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .ticket-close-button {
+    display: block;
+    background: transparent;
+    border: 1px solid white;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-left: 10px;
+    cursor: pointer;
+  }
 }
