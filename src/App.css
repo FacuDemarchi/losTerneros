@@ -75,7 +75,7 @@
   background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: flex-end;
-  z-index: 1000;
+  z-index: 3000; /* Mayor que el ticket panel (2000) */
 }
 
 .history-modal-content {
@@ -161,7 +161,8 @@
 
 #root {
   width: 100vw;
-  height: 100vh;
+  /* Use dvh (dynamic viewport height) to account for mobile browser UI */
+  height: 100dvh;
   display: flex;
   flex-direction: column;
 }
@@ -425,18 +426,36 @@
 
   .mobile-ticket-toggle {
     display: block;
-    position: absolute;
-    bottom: 4px;
-    right: 4px;
-    z-index: 100;
-    padding: 6px 12px;
+    /* Styles moved to .mobile-floating-controls children */
+    padding: 6px 8px;
     background-color: #b00020;
     color: white;
     border: 1px solid white;
     border-radius: 4px;
-    font-weight: bold;
-    font-size: 12px;
+    font-weight: 600;
+    font-size: 11px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  }
+
+  .mobile-floating-controls {
+    display: flex;
+    gap: 6px;
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    z-index: 100;
+  }
+
+  .mobile-show-prices-btn {
+      display: block;
+      padding: 6px 8px;
+      background-color: #e2ff96; /* Mismo verde que el botón de escritorio */
+      color: black;
+      border: 1px solid #7a7a7a;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 11px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
   }
 
   .pos-side-wrapper {
@@ -490,4 +509,71 @@
     margin-left: 10px;
     cursor: pointer;
   }
+}
+
+.ticket-clear-button {
+    background: #ff5252;
+    border: 1px solid #d32f2f;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ticket-clear-button:hover {
+    background-color: #d32f2f;
+}
+
+/* Mobile Ticket Actions */
+.mobile-ticket-actions {
+    display: none; /* Oculto por defecto en escritorio */
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+    background-color: #dcdcdc;
+    border-top: 1px solid #7a7a7a;
+}
+
+.mobile-ticket-row {
+    display: flex;
+    gap: 8px;
+}
+
+.mobile-action-btn {
+    flex: 1;
+    padding: 12px;
+    font-weight: bold;
+    font-size: 14px;
+    border: 1px solid #7a7a7a;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-close-client {
+    background-color: #fff3bf; /* Amarillo claro igual que escritorio */
+    flex: 2; /* Más ancho */
+}
+
+.btn-show-prices {
+    background-color: #e2ff96; /* Verde claro */
+    flex: 0.5; /* Más angosto */
+    font-size: 18px;
+}
+
+.btn-ticket-b, .btn-ticket-a {
+    background-color: #fff3bf;
+}
+
+@media (max-width: 900px) {
+    .pos-ticket {
+        /* Ajustar grid para que entre la nueva sección de botones */
+        grid-template-rows: auto 1fr auto; 
+    }
+
+    .mobile-ticket-actions {
+        display: flex; /* Mostrar solo en móvil */
+    }
 }

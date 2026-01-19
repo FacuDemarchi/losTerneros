@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
-import type { Category, Product, ClosedTicket, TicketItem } from '../types'
+import type { Category, Product } from '../types'
 import { useNavigate } from 'react-router-dom'
-import { CornerUpLeft, Download, Upload, Save } from 'lucide-react'
+import { CornerUpLeft, Download, Upload } from 'lucide-react'
 import CryptoJS from 'crypto-js'
 import './ConfigPage.css'
 

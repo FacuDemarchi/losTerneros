@@ -1,5 +1,7 @@
 import type { TicketItem } from '../types'
 
+import { Trash2 } from 'lucide-react'
+
 type TicketPanelProps = {
   items: TicketItem[]
   grandTotal: number
@@ -8,6 +10,9 @@ type TicketPanelProps = {
   onRemoveItem: (productId: string) => void
   onOpenHistory: () => void
   onClose?: () => void
+  onCloseTicket?: (type?: 'normal' | 'B' | 'A') => void
+  onSelectNormal?: () => void
+  onClearTicket?: () => void
 }
 
 
@@ -44,6 +49,9 @@ export function TicketPanel({
   onRemoveItem,
   onOpenHistory,
   onClose,
+  onCloseTicket,
+  onSelectNormal,
+  onClearTicket,
 }: TicketPanelProps) {
   return (
     <div className="pos-side">
@@ -51,6 +59,19 @@ export function TicketPanel({
         <div className="pos-total-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>Monto</span>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {onClearTicket && items.length > 0 && (
+                <button 
+                    className="ticket-clear-button" 
+                    onClick={() => {
+                        if(window.confirm('¿Estás seguro de vaciar el ticket?')) {
+                            onClearTicket()
+                        }
+                    }}
+                    title="Vaciar ticket"
+                >
+                    <Trash2 size={16} />
+                </button>
+            )}
             <button className="history-toggle-button" onClick={onOpenHistory}>
                 Ver Historial
             </button>
@@ -106,6 +127,23 @@ export function TicketPanel({
           <div className="ticket-footer-value">
             {totalQuantity.toFixed(3)}
           </div>
+        </div>
+      </div>
+      
+      {/* Botones móviles para cerrar ticket */}
+      <div className="mobile-ticket-actions">
+        <div className="mobile-ticket-row">
+            <button className="mobile-action-btn btn-close-client" onClick={() => onCloseTicket && onCloseTicket('normal')}>
+                Cerrar Cliente
+            </button>
+        </div>
+        <div className="mobile-ticket-row">
+            <button className="mobile-action-btn btn-ticket-b" onClick={() => onCloseTicket && onCloseTicket('B')}>
+                Tiquet B
+            </button>
+            <button className="mobile-action-btn btn-ticket-a" onClick={() => onCloseTicket && onCloseTicket('A')}>
+                Tiquet A
+            </button>
         </div>
       </div>
     </div>

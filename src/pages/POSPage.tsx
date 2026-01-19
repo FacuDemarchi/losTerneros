@@ -7,7 +7,6 @@ import { TicketPanel } from '../components/TicketPanel'
 import { HistoryModal } from '../components/HistoryModal'
 import { WeightInputModal } from '../components/WeightInputModal'
 import type { TicketItem, Product, ClosedTicket, Category } from '../types'
-import { useNavigate } from 'react-router-dom'
 import { api } from '../services/api'
 import '../App.css'
 
@@ -16,7 +15,6 @@ interface POSPageProps {
 }
 
 export function POSPage({ categories }: POSPageProps) {
-  const navigate = useNavigate()
   const [selectedCategoryId, setSelectedCategoryId] = useState(categories[0]?.id)
   const [ticketItems, setTicketItems] = useLocalStorage<TicketItem[]>('pos-current-ticket', [])
   const [closedTickets, setClosedTickets] = useLocalStorage<ClosedTicket[]>('pos-closed-tickets', [])
@@ -222,6 +220,10 @@ export function POSPage({ categories }: POSPageProps) {
     }, 10000)
   }
 
+  function handleClearTicket() {
+    setTicketItems([])
+  }
+
   return (
     <div className="pos-root">
       <div className="pos-main">
@@ -230,6 +232,7 @@ export function POSPage({ categories }: POSPageProps) {
           selectedCategoryId={selectedCategory?.id}
           onSelectCategory={handleCategoryClick}
           onOpenTicket={() => setIsTicketOpen(true)}
+          onSelectNormal={handleSelectNormal}
           totalQuantity={totalQuantity}
         />
 
@@ -256,6 +259,9 @@ export function POSPage({ categories }: POSPageProps) {
           onRemoveItem={handleRemoveItem}
           onOpenHistory={() => setIsHistoryOpen(true)}
           onClose={() => setIsTicketOpen(false)}
+          onCloseTicket={handleCloseTicket}
+          onSelectNormal={handleSelectNormal}
+          onClearTicket={handleClearTicket}
         />
       </div>
 
