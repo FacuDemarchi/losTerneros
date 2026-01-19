@@ -50,7 +50,7 @@ export function TicketPanel({
   onOpenHistory,
   onClose,
   onCloseTicket,
-  onSelectNormal,
+  // onSelectNormal,
   onClearTicket,
 }: TicketPanelProps) {
   return (
