@@ -13,16 +13,17 @@
 }
 
 .weight-modal-content {
-  width: 300px;
-  background-color: #f3f3f3;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-}
+    width: 300px;
+    background-color: #f3f3f3;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20vh; /* Subir visualmente el modal */
+  }
 
 .weight-modal-content h3 {
   margin: 0;
@@ -390,8 +391,12 @@
 /* RESPONSIVE STYLES */
 
 .mobile-ticket-toggle {
-  display: none;
-}
+    display: none; /* Hide by default on desktop */
+  }
+
+  .mobile-floating-controls {
+    display: none; /* Hide by default on desktop */
+  }
 
 .ticket-close-button {
   display: none;
@@ -414,6 +419,12 @@
 
   .pos-main {
     width: 100%;
+    /* Ocultar bottom controls en mobile porque ya están en el ticket panel */
+    grid-template-rows: auto 1fr; 
+  }
+
+  .pos-bottom-controls {
+      display: none;
   }
   
   .pos-category-buttons {
@@ -426,7 +437,6 @@
 
   .mobile-ticket-toggle {
     display: block;
-    /* Styles moved to .mobile-floating-controls children */
     padding: 6px 8px;
     background-color: #b00020;
     color: white;
