@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visor de Tickets - Los Terneros</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #1a1a1a;
+            color: white;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #left-panel {
+            width: 400px;
+            background-color: #2a2a2a;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border-right: 2px solid #444;
+            box-shadow: 4px 0 10px rgba(0,0,0,0.5);
+            transition: width 0.5s ease;
+        }
+
+        #qr-container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 40px;
+        }
+
+        h1 { margin-bottom: 5px; color: #e2ff96; }
+        p { color: #aaa; margin-top: 5px; }
+
+        #right-panel {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: #121212;
+        }
+
+        .ticket-card {
+            background-color: #fff;
+            color: #000;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            padding: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            animation: slideIn 0.4s ease-out;
+            border-left: 6px solid #4caf50;
+        }
+
+        .ticket-card.type-A { border-left-color: #1976d2; background-color: #e3f2fd; }
+        .ticket-card.type-B { border-left-color: #b00020; background-color: #ffebee; }
+
+        .ticket-header {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+        }
+
+        .ticket-items {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .item-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.95em;
+        }
+
+        .total-badge {
+            background-color: #000;
+            color: #e2ff96;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(50px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        #empty-state {
+            display: flex;
+            height: 100%;
+            justify-content: center;
+            align-items: center;
+            color: #444;
+            font-size: 2em;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="left-panel">
+        <h1>Modo Receptor</h1>
+        <p>Escanea para enviar tickets</p>
+        
+        <div id="qr-container">
+            <div id="qrcode"></div>
+        </div>
+        
+        <p id="ip-display" style="font-family: monospace; margin-top: 20px; font-size: 1.2em; color: #fff;">
+            Cargando IP...
+        </p>
+    </div>
+
+    <div id="right-panel">
+        <div id="empty-state">Esperando datos...</div>
+        <div id="tickets-container"></div>
+    </div>
+
+    <script>
+        const socket = io();
+        const ticketsContainer = document.getElementById('tickets-container');
+        const emptyState = document.getElementById('empty-state');
+
+        // Obtener Configuración (IP)
+        fetch('/api/config')
+            .then(res => res.json())
+            .then(data => {
+                const url = `http://${data.ip}:${data.port}/api/sync`;
+                document.getElementById('ip-display').innerText = url;
+                
+                new QRCode(document.getElementById("qrcode"), {
+                    text: url,
+                    width: 256,
+                    height: 256
+                });
+            });
+
+        // Escuchar nuevos datos
+        socket.on('new_data', (tickets) => {
+            if (emptyState) emptyState.style.display = 'none';
+
+            tickets.forEach(ticket => {
+                const card = document.createElement('div');
+                card.className = `ticket-card type-${ticket.type || 'normal'}`;
+                
+                const date = new Date(ticket.timestamp).toLocaleTimeString();
+                
+                const itemsHtml = ticket.items.map(item => `
+                    <div class="item-row">
+                        <span>${item.name} (${item.quantity} ${item.unitType === 'weight' ? 'kg' : 'un'})</span>
+                        <span>$${(item.quantity * item.pricePerUnit).toFixed(2)}</span>
+                    </div>
+                `).join('');
+
+                card.innerHTML = `
+                    <div class="ticket-header">
+                        <span>Ticket ${ticket.type ? ticket.type : 'Normal'} - ${date}</span>
+                        <span class="total-badge">$${ticket.total.toLocaleString('es-AR')}</span>
+                    </div>
+                    <div class="ticket-items">
+                        ${itemsHtml}
+                    </div>
+                `;
+
+                ticketsContainer.prepend(card);
+            });
+        });
+    </script>
+</body>
+</html>

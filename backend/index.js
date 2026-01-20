@@ -2,13 +2,40 @@ const express = require('express');
 const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const http = require('http');
+const { Server } = require("socket.io");
+const os = require('os');
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
+
 const PORT = 3001;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Obtener IP Local
+function getLocalIp() {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+        for (const iface of interfaces[name]) {
+            if (iface.family === 'IPv4' && !iface.internal) {
+                return iface.address;
+            }
+        }
+    }
+    return 'localhost';
+}
+
+const LOCAL_IP = getLocalIp();
 
 // Database setup
 const dbPath = path.resolve(__dirname, 'pos.db');
@@ -51,7 +78,7 @@ app.get('/api/config', (req, res) => {
     }
     // Si no hay configuración guardada, devolver null o array vacío
     const categories = row ? JSON.parse(row.value) : null;
-    res.json({ categories });
+    res.json({ categories, serverIp: LOCAL_IP, port: PORT });
   });
 });
 
@@ -72,6 +99,10 @@ app.post('/api/config', (req, res) => {
         res.status(500).json({ error: err.message });
         return;
       }
+      
+      // Notificar a todos los clientes conectados que hubo cambios
+      io.emit('config_updated', categories);
+      
       res.json({ message: 'Configuration saved successfully' });
     }
   );
@@ -117,7 +148,71 @@ app.post('/api/sales', (req, res) => {
   );
 });
 
+// POST Sync (Batch Sales)
+app.post('/api/sync', (req, res) => {
+  const { tickets } = req.body; // Expecting { tickets: [...] }
+  
+  if (!tickets || !Array.isArray(tickets)) {
+    res.status(400).json({ error: 'Invalid tickets data' });
+    return;
+  }
+
+  let addedCount = 0;
+  let errors = [];
+
+  const stmt = db.prepare(`INSERT OR IGNORE INTO sales (id, timestamp, total, type, items) VALUES (?, ?, ?, ?, ?)`);
+
+  db.serialize(() => {
+    db.run("BEGIN TRANSACTION");
+
+    tickets.forEach(sale => {
+      if (!sale.id || !sale.items) return;
+      
+      const itemsJson = JSON.stringify(sale.items);
+      stmt.run([sale.id, sale.timestamp, sale.total, sale.type, itemsJson], function(err) {
+        if (err) {
+          errors.push({ id: sale.id, error: err.message });
+        } else if (this.changes > 0) {
+          addedCount++;
+        }
+      });
+    });
+
+    db.run("COMMIT", (err) => {
+      stmt.finalize();
+      if (err) {
+        res.status(500).json({ error: 'Transaction commit failed' });
+      } else {
+        res.json({ 
+          message: 'Sync completed', 
+          added: addedCount, 
+          total: tickets.length,
+          errors: errors.length > 0 ? errors : undefined 
+        });
+
+        // Notificar al visor web si hay nuevos tickets
+        if (addedCount > 0) {
+            io.emit('new_data', tickets);
+        }
+      }
+    });
+  });
+});
+
+// Serve Viewer
+app.get('/viewer', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'viewer.html'));
+});
+
+// Socket.io Connection
+io.on('connection', (socket) => {
+    console.log('🔌 Cliente conectado:', socket.id);
+});
+
 // Start server
-app.listen(PORT, () => {
-  console.log(`Backend server running on http://localhost:${PORT}`);
+server.listen(PORT, () => {
+  console.log(`\n🚀 SERVIDOR POS LISTO`);
+  console.log(`📡 API & Socket: http://localhost:${PORT}`);
+  console.log(`📺 Visor Web:    http://localhost:${PORT}/viewer.html`);
+  console.log(`📱 IP Local:     http://${LOCAL_IP}:${PORT}\n`);
 });

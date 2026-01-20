@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react'
 import type { Category, Product } from '../types'
 import { useNavigate } from 'react-router-dom'
-import { CornerUpLeft, Download, Upload } from 'lucide-react'
+import { CornerUpLeft, Download, Upload, QrCode } from 'lucide-react'
 import CryptoJS from 'crypto-js'
+import QRCode from 'react-qr-code'
 import './ConfigPage.css'
 
 interface ConfigPageProps {
@@ -10,7 +11,8 @@ interface ConfigPageProps {
   onUpdateCategory: (category: Category) => void
 }
 
-const SECRET_KEY = 'los-terneros-secure-backup-key-2025' // Clave fija para encriptar/desencriptar
+const SECRET_KEY = 'los-terneros-secure-backup-key-2025'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 
 export function ConfigPage({ categories, onUpdateCategory }: ConfigPageProps) {
   const navigate = useNavigate()
@@ -19,6 +21,7 @@ export function ConfigPage({ categories, onUpdateCategory }: ConfigPageProps) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [importStatus, setImportStatus] = useState('')
+  const [showQR, setShowQR] = useState(false)
 
   const [selectedCategoryId, setSelectedCategoryId] = useState(categories[0]?.id)
   
@@ -239,6 +242,22 @@ export function ConfigPage({ categories, onUpdateCategory }: ConfigPageProps) {
         <h3>Gestión de Datos</h3>
         
         <div className="data-actions">
+          <div className="data-group">
+             <span className="data-group-title">Sincronización (Modo Receptor)</span>
+             <button className="data-btn qr-btn" onClick={() => setShowQR(!showQR)}>
+                <QrCode size={18} />
+                {showQR ? 'Ocultar QR' : 'Mostrar QR Servidor'}
+             </button>
+             {showQR && (
+                <div style={{ marginTop: '10px', background: 'white', padding: '10px', display: 'inline-block', borderRadius: '8px' }}>
+                    <QRCode value={`${API_URL}/sync`} size={150} />
+                    <p style={{ color: 'black', fontSize: '10px', marginTop: '5px', textAlign: 'center' }}>
+                        {API_URL}/sync
+                    </p>
+                </div>
+             )}
+          </div>
+
           <div className="data-group">
             <span className="data-group-title">Productos y Precios</span>
             <button className="data-btn export-btn" onClick={() => handleExportData('products')}>

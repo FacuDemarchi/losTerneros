@@ -54,4 +54,20 @@ export const api = {
       return false
     }
   },
+
+  async syncTickets(targetUrl: string, tickets: ClosedTicket[]): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await fetch(targetUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tickets }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Sync failed')
+      return { success: true, message: `Sincronización exitosa: ${data.added} tickets nuevos agregados.` }
+    } catch (error: any) {
+      console.error('Error syncing tickets:', error)
+      return { success: false, message: error.message || 'Error de conexión' }
+    }
+  }
 }

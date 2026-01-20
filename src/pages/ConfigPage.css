@@ -178,6 +178,15 @@
   justify-content: center;
 }
 
+.qr-btn {
+  background-color: #673ab7;
+  color: white;
+}
+
+.qr-btn:hover {
+  background-color: #512da8;
+}
+
 .export-btn {
   background-color: #2e7d32;
   color: white;
