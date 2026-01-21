@@ -212,6 +212,10 @@ app.post('/api/sync', (req, res) => {
 });
 
 // Serve Viewer
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'viewer.html'));
+});
+
 app.get('/viewer', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'viewer.html'));
 });
@@ -226,6 +230,6 @@ server.listen(PORT, () => {
   const displayUrl = PUBLIC_URL || `http://${LOCAL_IP}:${PORT}`;
   console.log(`\n🚀 SERVIDOR POS LISTO`);
   console.log(`📡 API & Socket: http://localhost:${PORT}`);
-  console.log(`📺 Visor Web:    http://localhost:${PORT}/viewer.html`);
+  console.log(`📺 Visor Web:    http://localhost:${PORT}/`);
   console.log(`📱 QR Apunta a:  ${displayUrl}/api/sync\n`);
 });

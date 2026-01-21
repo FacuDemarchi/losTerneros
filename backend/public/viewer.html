@@ -135,7 +135,8 @@
         fetch('/api/config')
             .then(res => res.json())
             .then(data => {
-                const url = `http://${data.ip}:${data.port}/api/sync`;
+                // Usar la URL pública que el backend ya decidió (ngrok o local)
+                const url = `${data.publicUrl}/api/sync`;
                 document.getElementById('ip-display').innerText = url;
                 
                 new QRCode(document.getElementById("qrcode"), {

@@ -52,18 +52,21 @@ function App() {
   }
 
   return (
-    <Routes>
-      <Route path="/" element={<POSPage categories={categories} />} />
-      <Route 
-        path="/config" 
-        element={
-          <ConfigPage 
-            categories={categories} 
-            onUpdateCategory={handleUpdateCategory} 
-          />
-        } 
-      />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/" element={<POSPage categories={categories} />} />
+        <Route 
+          path="/config" 
+          element={
+            <ConfigPage 
+              categories={categories} 
+              onUpdateCategory={handleUpdateCategory} 
+            />
+          } 
+        />
+      </Routes>
+      {/* <DebugConsole /> */}
+    </>
   )
 }
 
