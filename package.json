@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "vite --host",
     "server": "cd backend && pnpm run server",
-    "visor": "cd backend && pnpm run server",
+    "visor": "cd backend && pnpm run visor",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"

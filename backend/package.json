@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "server": "nodemon index.js"
+    "server": "nodemon index.js",
+    "visor": "node visor-launcher.js"
   },
   "keywords": [],
   "author": "",
@@ -14,6 +15,7 @@
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.18.2",
+    "ngrok": "5.0.0-beta.2",
     "socket.io": "^4.8.3",
     "sqlite3": "^5.1.7"
   },

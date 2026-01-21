@@ -37,6 +37,9 @@ function getLocalIp() {
 
 const LOCAL_IP = getLocalIp();
 
+// Variable global para URL pública (puede ser inyectada desde fuera)
+let PUBLIC_URL = process.env.PUBLIC_URL || null;
+
 // Database setup
 const dbPath = path.resolve(__dirname, 'pos.db');
 const db = new sqlite3.Database(dbPath, (err) => {
@@ -78,7 +81,16 @@ app.get('/api/config', (req, res) => {
     }
     // Si no hay configuración guardada, devolver null o array vacío
     const categories = row ? JSON.parse(row.value) : null;
-    res.json({ categories, serverIp: LOCAL_IP, port: PORT });
+    
+    // Si existe una URL pública inyectada (ngrok), la enviamos preferentemente
+    const serverUrl = PUBLIC_URL || `http://${LOCAL_IP}:${PORT}`;
+    
+    res.json({ 
+        categories, 
+        serverIp: LOCAL_IP, 
+        port: PORT,
+        publicUrl: serverUrl 
+    });
   });
 });
 
@@ -211,8 +223,9 @@ io.on('connection', (socket) => {
 
 // Start server
 server.listen(PORT, () => {
+  const displayUrl = PUBLIC_URL || `http://${LOCAL_IP}:${PORT}`;
   console.log(`\n🚀 SERVIDOR POS LISTO`);
   console.log(`📡 API & Socket: http://localhost:${PORT}`);
   console.log(`📺 Visor Web:    http://localhost:${PORT}/viewer.html`);
-  console.log(`📱 IP Local:     http://${LOCAL_IP}:${PORT}\n`);
+  console.log(`📱 QR Apunta a:  ${displayUrl}/api/sync\n`);
 });
