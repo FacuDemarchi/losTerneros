@@ -7,7 +7,8 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "server": "nodemon index.js",
-    "visor": "node visor-launcher.js"
+    "visor": "node visor-launcher.js",
+    "set-auth": "node set-auth.js"
   },
   "keywords": [],
   "author": "",

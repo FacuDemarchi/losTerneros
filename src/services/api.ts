@@ -20,6 +20,23 @@ function reportError(context: string, error: any) {
 }
 
 export const api = {
+  // Auth
+  async login(password: string): Promise<{ success: boolean; role?: 'admin' | 'master'; error?: string }> {
+    try {
+      const response = await fetch(`${API_URL}/login`, {
+        method: 'POST',
+        headers: BASE_HEADERS,
+        body: JSON.stringify({ password }),
+      });
+      const data = await response.json();
+      if (!response.ok) return { success: false, error: data.error || 'Login failed' };
+      return data;
+    } catch (error: any) {
+      reportError('Error logging in', error);
+      return { success: false, error: 'Connection error' };
+    }
+  },
+
   // Configuration
   async getConfig(): Promise<{ categories: Category[] } | null> {
     try {

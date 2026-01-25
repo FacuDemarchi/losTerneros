@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
@@ -5,6 +6,7 @@ const path = require('path');
 const http = require('http');
 const { Server } = require("socket.io");
 const os = require('os');
+const crypto = require('crypto');
 
 const app = express();
 const server = http.createServer(app);
@@ -71,6 +73,25 @@ function initDb() {
 }
 
 // Routes
+
+// POST Login (Auth)
+app.post('/api/login', (req, res) => {
+    const { password } = req.body;
+    if (!password) return res.status(400).json({ error: 'Password required' });
+
+    const hash = crypto.createHash('sha256').update(password).digest('hex');
+
+    if (hash === process.env.MASTER_HASH) {
+        console.log('🔑 Login exitoso: MAESTRO');
+        res.json({ success: true, role: 'master', token: 'session-master' });
+    } else if (hash === process.env.ADMIN_HASH) {
+        console.log('🔑 Login exitoso: ADMIN');
+        res.json({ success: true, role: 'admin', token: 'session-admin' });
+    } else {
+        console.warn('⛔ Intento de login fallido');
+        res.status(401).json({ error: 'Contraseña incorrecta' });
+    }
+});
 
 // GET Configuration (Categories & Products)
 app.get('/api/config', (req, res) => {
@@ -175,6 +196,19 @@ app.post('/api/sync', (req, res) => {
   const stmt = db.prepare(`INSERT OR IGNORE INTO sales (id, timestamp, total, type, items) VALUES (?, ?, ?, ?, ?)`);
 
   db.serialize(() => {
+    // MODO DEMO: Simular sincronización exitosa sin guardar en DB
+    console.log(`📥 (DEMO) Recibidos ${tickets.length} tickets para sincronizar. Emitiendo al visor...`);
+    
+    // Emitir al visor para que se vea la animación
+    io.emit('new_data', tickets);
+    
+    res.json({ 
+      message: 'Sync completed (DEMO MODE)', 
+      added: tickets.length, 
+      total: tickets.length
+    });
+
+    /*
     db.run("BEGIN TRANSACTION");
 
     tickets.forEach(sale => {
@@ -208,6 +242,7 @@ app.post('/api/sync', (req, res) => {
         }
       }
     });
+    */
   });
 });
 
@@ -223,6 +258,37 @@ app.get('/viewer', (req, res) => {
 // Socket.io Connection
 io.on('connection', (socket) => {
     console.log('🔌 Cliente conectado:', socket.id);
+
+    // Sync: Client asks for Master
+    socket.on('sync:request_master', () => {
+        console.log(`📢 [Sync] Cliente ${socket.id} busca al Maestro...`);
+        // Broadcast to everyone EXCEPT sender
+        socket.broadcast.emit('sync:ask_master', { requesterId: socket.id });
+    });
+
+    // Sync: Master responds with data
+    socket.on('sync:master_upload', (data) => {
+        if (!data || !data.categories) return;
+        console.log(`📥 [Sync] Maestro ha enviado configuración actualizada (${data.categories.length} categorías).`);
+        
+        const categories = data.categories;
+        const jsonVal = JSON.stringify(categories);
+        
+        // Save to DB
+        db.run(`INSERT INTO app_config (key, value) VALUES (?, ?)
+          ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+          ['categories', jsonVal],
+          function(err) {
+            if (err) {
+              console.error('Error saving master config:', err.message);
+              return;
+            }
+            // Broadcast update to ALL clients
+            io.emit('config_updated', categories);
+            console.log('✅ Configuración sincronizada y distribuida a todos.');
+          }
+        );
+    });
 });
 
 // Start server

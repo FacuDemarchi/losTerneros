@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { CornerUpLeft, Download, Upload, QrCode } from 'lucide-react'
 import CryptoJS from 'crypto-js'
 import QRCode from 'react-qr-code'
+import { api } from '../services/api'
 import './ConfigPage.css'
 
 interface ConfigPageProps {
@@ -27,12 +28,19 @@ export function ConfigPage({ categories, onUpdateCategory }: ConfigPageProps) {
   
   const selectedCategory = categories.find(c => c.id === selectedCategoryId)
 
-  function handleLogin() {
-    if (password === 'admin') {
-      setIsAuthenticated(true)
-      setError('')
-    } else {
-      setError('Contraseña incorrecta')
+  async function handleLogin() {
+    setError('')
+    try {
+      const result = await api.login(password)
+      if (result.success && result.role) {
+        setIsAuthenticated(true)
+        localStorage.setItem('pos-role', result.role)
+        console.log(`Rol activo: ${result.role}`)
+      } else {
+        setError(result.error || 'Clave incorrecta')
+      }
+    } catch (e) {
+      setError('Error de conexión con el servidor')
     }
   }
 
