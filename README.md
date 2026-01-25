@@ -88,3 +88,29 @@ pnpm run dev
 *   `/src`: Código fuente del Frontend (React + Vite).
 *   `/backend`: Código fuente del Servidor (Express + SQLite + Socket.io).
 *   `/backend/public`: Archivos estáticos del Visor Web.
+
+## Gestión de Contraseñas (Backend)
+
+El sistema incluye una herramienta segura para cambiar las contraseñas de **Administrador** y **Maestro** directamente desde la terminal, sin necesidad de editar archivos manualmente.
+
+### Comando de Uso
+
+Ejecuta el siguiente comando en la raíz del proyecto:
+
+```bash
+npm run set-auth <rol> "nueva_contraseña"
+```
+
+### Ejemplos
+
+**Cambiar clave Maestra:**
+```bash
+npm run set-auth master "mi_clave_secreta"
+```
+
+**Cambiar clave de Administrador:**
+```bash
+npm run set-auth admin "otra_clave"
+```
+
+> **Nota**: Después de cambiar una contraseña, es necesario reiniciar el servidor backend (`pnpm run server`) para que los cambios surtan efecto.
