@@ -1,116 +1,75 @@
-# Los Terneros POS
+# Los Terneros POS 🥩
 
-Sistema de Punto de Venta (POS) diseñado para carnicerías, con capacidad de funcionamiento en múltiples dispositivos, sincronización centralizada y soporte para escaneo de códigos QR.
+Sistema de Punto de Venta moderno para carnicerías, diseñado para funcionar con o sin internet y sincronizar ventas entre dispositivos.
 
-## Características
-
-*   **Interfaz de Venta Rápida**: Diseñada para pantallas táctiles y uso ágil.
-*   **Multi-Dispositivo**: Funciona en PC y dispositivos móviles.
-*   **Sincronización en Tiempo Real**:
-    *   Los precios se actualizan instantáneamente en todos los dispositivos conectados.
-    *   Sincronización de ventas desde móviles al servidor central mediante QR.
-*   **Gestión de Ventas**:
-    *   Historial de ventas diarias.
-    *   Clasificación de tickets (Tipo A, B, Normal).
-    *   Exportación de datos.
-*   **Visor de Recepción**: Pantalla dedicada para recibir y visualizar ventas entrantes desde otros dispositivos.
-
-## Requisitos Previos
-
-*   [Node.js](https://nodejs.org/) (Versión 18 o superior recomendada)
-*   [pnpm](https://pnpm.io/) (Gestor de paquetes)
-
-## Instalación
-
-1.  Clonar el repositorio.
-2.  Instalar dependencias en la raíz y en el backend:
-
-```bash
-# En la raíz (Frontend)
-pnpm install
-
-# En la carpeta backend
-cd backend
-pnpm install
-```
-
-## Ejecución
-
-El sistema consta de dos partes: el **Servidor** (Backend) y la **Aplicación** (Frontend).
+## 🚀 Inicio Rápido
 
 ### 1. Iniciar el Servidor (Backend)
-
-Este comando levanta el servidor que gestiona la base de datos, los precios y la lógica de negocio.
-
+Es el cerebro del sistema. Debe estar encendido en la PC principal.
 ```bash
 pnpm run server
 ```
 
-### 2. Modo Visor (Receptor QR)
-
-Este comando inicia el servidor y está pensado para la **PC Central**. Muestra una interfaz con un **Código QR** lista para recibir datos.
-
-```bash
-pnpm run visor
-```
-
-*   **¿Para qué sirve?**: Genera un QR en pantalla que espera ser escaneado por un dispositivo móvil. Al escanearlo, el celular transfiere automáticamente sus ventas a esta PC.
-*   **Visor Web**: Abrir `http://localhost:3001/` para ver el QR y monitorear las ventas entrantes en tiempo real.
-
-### 3. Iniciar la Aplicación (Frontend)
-
-Este comando levanta la interfaz de usuario para vender.
-
+### 2. Iniciar la Pantalla de Ventas (Frontend)
+La interfaz para vender.
 ```bash
 pnpm run dev
 ```
+> Accede en: `http://localhost:5173`
 
-*   **Acceso Local**: `http://localhost:5173`
-*   **Acceso desde Móvil**: Usar la IP de red local (ej: `http://192.168.1.X:5173`).
+---
 
-## Uso del Sistema
+## 📱 Sincronización Móvil (Modo Visor)
 
-### Configuración de Precios
-1.  Ir al botón de engranaje (Configuración) en la app.
-2.  Modificar los precios o nombres de productos.
-3.  Los cambios se guardan automáticamente y se propagan a todos los dispositivos conectados al servidor.
+Si usas el sistema en celulares, puedes enviar las ventas a la PC principal al final del día.
 
-### Sincronización de Ventas (Móvil -> PC)
-1.  En la PC Servidor: Abrir el **Visor** (`pnpm run server` y abrir la URL indicada).
-2.  En el Celular:
-    *   Ir al historial de ventas (icono de reloj).
-    *   Tocar el icono de **Código QR**.
-    *   Escanear el QR que aparece en la pantalla de la PC.
-3.  Las ventas se transferirán y aparecerán en la pantalla de la PC.
+1.  **En la PC**: Ejecuta el modo visor para esperar datos.
+    ```bash
+    pnpm run visor
+    ```
+    *Se abrirá una pantalla con un código QR.*
 
-## Estructura del Proyecto
+2.  **En el Celular**:
+    *   Ve al **Historial**.
+    *   Toca el botón **QR**.
+    *   Escanea la pantalla de la PC.
 
-*   `/src`: Código fuente del Frontend (React + Vite).
-*   `/backend`: Código fuente del Servidor (Express + SQLite + Socket.io).
-*   `/backend/public`: Archivos estáticos del Visor Web.
+---
 
-## Gestión de Contraseñas (Backend)
+## 🛠️ Administración y Seguridad
 
-El sistema incluye una herramienta segura para cambiar las contraseñas de **Administrador** y **Maestro** directamente desde la terminal, sin necesidad de editar archivos manualmente.
-
-### Comando de Uso
-
-Ejecuta el siguiente comando en la raíz del proyecto:
+### Cambiar Contraseñas
+El sistema usa claves para proteger configuraciones críticas. Puedes cambiarlas fácilmente desde la terminal:
 
 ```bash
-npm run set-auth <rol> "nueva_contraseña"
+# Cambiar clave Maestra (Acceso total)
+npm run set-auth master "nueva_clave"
+
+# Cambiar clave Admin (Solo configuración)
+npm run set-auth admin "nueva_clave"
 ```
+> **Importante**: Reinicia el servidor (`pnpm run server`) después de cambiar una clave.
 
-### Ejemplos
+---
 
-**Cambiar clave Maestra:**
-```bash
-npm run set-auth master "mi_clave_secreta"
-```
+## 📦 Instalación (Solo primera vez)
 
-**Cambiar clave de Administrador:**
-```bash
-npm run set-auth admin "otra_clave"
-```
+Si acabas de descargar el proyecto:
 
-> **Nota**: Después de cambiar una contraseña, es necesario reiniciar el servidor backend (`pnpm run server`) para que los cambios surtan efecto.
+1.  Instalar dependencias generales:
+    ```bash
+    pnpm install
+    ```
+2.  Instalar dependencias del servidor:
+    ```bash
+    cd backend
+    pnpm install
+    ```
+
+---
+
+## 📂 Estructura Técnica
+
+*   **Frontend (`/src`)**: Interfaz hecha con React + Vite.
+*   **Backend (`/backend`)**: Servidor Node.js + Express.
+*   **Base de Datos**: SQLite (archivo `backend/pos.db`).
