@@ -199,6 +199,7 @@ app.post('/api/sales', async (req, res) => {
 
 // POST Sync (Batch Sales)
 app.post('/api/sync', async (req, res) => {
+  if (CLOUD_MODE) return res.json({ message: 'Cloud mode: Sync disabled', added: 0, total: 0 }); // Ignoramos sync en nube
   const { tickets } = req.body; // Expecting { tickets: [...] }
   
   if (!tickets || !Array.isArray(tickets)) {

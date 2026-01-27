@@ -5,5 +5,6 @@ dist
 .trae
 .log
 .figma
-backend
-.plans/
+backend/
+.env
+backend/.env

@@ -92,8 +92,9 @@ function App() {
   if (status === 'error') {
       return (
           <div className="error-screen">
-              <h1>Sistema No Disponible</h1>
-              <p>No se puede conectar con el Servidor ni se detectó al Maestro.</p>
+              <h1>⚠️ Sin Conexión</h1>
+              <p>No se puede conectar con el Servidor en la Nube (Render).</p>
+              <p className="error-hint">Verifique su conexión a internet.</p>
               <button onClick={() => window.location.reload()}>Reintentar</button>
           </div>
       )
