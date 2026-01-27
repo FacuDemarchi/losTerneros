@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import type { Category, Product } from '../types'
 import { useNavigate } from 'react-router-dom'
-import { CornerUpLeft, Download, Upload, QrCode } from 'lucide-react'
+import { CornerUpLeft, Download, Upload, QrCode, LogOut } from 'lucide-react'
 import CryptoJS from 'crypto-js'
 import QRCode from 'react-qr-code'
 import { api } from '../services/api'

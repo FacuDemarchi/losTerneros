@@ -22,7 +22,15 @@ function App() {
   // Cargar configuración inicial del backend y escuchar cambios
   useEffect(() => {
     let isMounted = true;
-    const socket = io(API_URL.replace('/api', ''));
+    
+    // Si API_URL termina en /api, lo quitamos para conectar al socket (que suele estar en la raíz)
+    const socketUrl = API_URL.endsWith('/api') ? API_URL.slice(0, -4) : API_URL;
+    console.log('🔌 Conectando Socket.io a:', socketUrl);
+    
+    const socket = io(socketUrl, {
+        transports: ['websocket', 'polling'],
+        withCredentials: true
+    });
 
     // 1. Initial Fetch
     api.getConfig().then((config) => {
