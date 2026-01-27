@@ -1,0 +1,22 @@
+{
+  "name": "Los Terneros POS",
+  "short_name": "Los Terneros",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#00163a",
+  "theme_color": "#b00020",
+  "description": "Sistema de Punto de Venta para Carnicerías",
+  "orientation": "landscape",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
