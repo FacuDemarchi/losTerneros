@@ -36,7 +36,7 @@ export function CategoryStrip({
 
     tapTimerRef.current = setTimeout(() => {
         tapCountRef.current = 0
-    }, 1000) // Resetear si pasan más de 1s entre toques
+    }, 3000) // Resetear si pasan más de 3s entre toques
 
     if (tapCountRef.current >= 4) {
         tapCountRef.current = 0

@@ -217,7 +217,7 @@ export function POSPage({ categories }: POSPageProps) {
 
     setTimeout(() => {
         setFlashingPrices({})
-    }, 10000)
+    }, 5000)
   }
 
   function handleClearTicket() {
