@@ -1,4 +1,6 @@
+import { useState, useRef } from 'react'
 import type { Category } from '../types'
+import { useNavigate } from 'react-router-dom'
 
 type CategoryStripProps = {
   categories: Category[]
@@ -17,6 +19,31 @@ export function CategoryStrip({
   onSelectNormal,
   totalQuantity = 0,
 }: CategoryStripProps) {
+  const navigate = useNavigate()
+  const tapCountRef = useRef(0)
+  const tapTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  function handleSecretTap() {
+    // Si hay una acción normal (Mostrar Precios), la ejecutamos
+    onSelectNormal?.()
+
+    // Lógica del gesto secreto
+    tapCountRef.current += 1
+    
+    if (tapTimerRef.current) {
+        clearTimeout(tapTimerRef.current)
+    }
+
+    tapTimerRef.current = setTimeout(() => {
+        tapCountRef.current = 0
+    }, 1000) // Resetear si pasan más de 1s entre toques
+
+    if (tapCountRef.current >= 4) {
+        tapCountRef.current = 0
+        navigate('/config')
+    }
+  }
+
   return (
     <div className="pos-category-strip">
       <div className="pos-category-buttons">
@@ -39,7 +66,7 @@ export function CategoryStrip({
         {onSelectNormal && (
              <button 
                 className="mobile-show-prices-btn"
-                onClick={onSelectNormal}
+                onClick={handleSecretTap}
             >
                 Mostrar Precios
             </button>
@@ -56,4 +83,5 @@ export function CategoryStrip({
     </div>
   )
 }
+
 
