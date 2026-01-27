@@ -6,6 +6,7 @@ import CryptoJS from 'crypto-js'
 import QRCode from 'react-qr-code'
 import { api } from '../services/api'
 import './ConfigPage.css'
+import { DebouncedInput } from '../components/DebouncedInput'
 
 interface ConfigPageProps {
   categories: Category[]
@@ -220,39 +221,39 @@ export function ConfigPage({ categories, onUpdateCategory }: ConfigPageProps) {
         <table className="config-table">
           <thead>
             <tr>
-              <th style={{ width: '40%' }}>Nombre</th>
-              <th style={{ width: '20%', textAlign: 'right' }}>Precio</th>
-              <th style={{ width: '20%' }}>Unidad</th>
+              <th style={{ width: '50%' }}>Nombre</th>
+              <th style={{ width: '25%', textAlign: 'right' }}>Precio</th>
+              <th style={{ width: '25%', textAlign: 'center' }}>Unidad</th>
             </tr>
           </thead>
           <tbody>
             {selectedCategory?.products.map(product => (
               <tr key={product.id}>
                 <td>
-                  <input
+                  <DebouncedInput
                     className="config-input"
                     type="text"
                     value={product.name}
-                    onChange={(e) => handleProductChange(product, 'name', e.target.value)}
+                    onChangeValue={(val) => handleProductChange(product, 'name', val)}
                   />
                 </td>
                 <td style={{ textAlign: 'right' }}>
-                  <input
+                  <DebouncedInput
                     className="config-input"
                     type="number"
                     value={product.pricePerUnit}
-                    onChange={(e) => handleProductChange(product, 'pricePerUnit', Number(e.target.value))}
+                    onChangeValue={(val) => handleProductChange(product, 'pricePerUnit', Number(val))}
                     style={{ textAlign: 'right' }}
                   />
                 </td>
-                 <td>
+                 <td style={{ textAlign: 'center' }}>
                   <select
                     className="config-select"
                     value={product.unitType}
                     onChange={(e) => handleProductChange(product, 'unitType', e.target.value)}
                   >
                     <option value="weight">Kg</option>
-                    <option value="unit">Unidad</option>
+                    <option value="unit">Un</option>
                   </select>
                 </td>
               </tr>
