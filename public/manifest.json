@@ -6,7 +6,7 @@
   "background_color": "#00163a",
   "theme_color": "#b00020",
   "description": "Sistema de Punto de Venta para Carnicerías",
-  "orientation": "landscape",
+  "orientation": "portrait",
   "icons": [
     {
       "src": "/icons/icon-192.png",
