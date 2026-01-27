@@ -72,4 +72,19 @@ Si acabas de descargar el proyecto:
 
 *   **Frontend (`/src`)**: Interfaz hecha con React + Vite.
 *   **Backend (`/backend`)**: Servidor Node.js + Express.
-*   **Base de Datos**: SQLite (archivo `backend/pos.db`).
+*   **Base de Datos**: PostgreSQL (Neon DB).
+
+## ☁️ Despliegue en la Nube (Render)
+
+Para independizarte de la PC local, puedes subir el backend a Render.com (Gratis).
+
+1.  Crea una cuenta en [Render.com](https://render.com).
+2.  Conecta tu repositorio de GitHub.
+3.  Ve a **Blueprints** y selecciona "New Blueprint Instance".
+4.  Render detectará automáticamente el archivo `render.yaml`.
+5.  Te pedirá las siguientes variables de entorno (copialas de tu `.env` local):
+    *   `DATABASE_URL`: La conexión a Neon.
+    *   `MASTER_HASH`: Tu clave maestra encriptada.
+    *   `ADMIN_HASH`: Tu clave admin encriptada.
+
+¡Listo! Tendrás una URL como `https://los-terneros-backend.onrender.com` que podrás usar en tus celulares.

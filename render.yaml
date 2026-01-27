@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: los-terneros-backend
+    env: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: ADMIN_HASH
+        sync: false
+      - key: MASTER_HASH
+        sync: false
+      - key: NODE_VERSION
+        value: 20.11.0

@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg'); // Usamos 'pg' en lugar de 'sqlite3'
 const path = require('path');
 const http = require('http');
 const { Server } = require("socket.io");
@@ -17,7 +17,7 @@ const io = new Server(server, {
     }
 });
 
-const PORT = 3001;
+const PORT = process.env.PORT || 3001; // Importante para despliegues (Vercel/Render)
 
 // Middleware
 app.use(cors());
@@ -42,35 +42,46 @@ const LOCAL_IP = getLocalIp();
 // Variable global para URL pública (puede ser inyectada desde fuera)
 let PUBLIC_URL = process.env.PUBLIC_URL || null;
 
-// Database setup
-const dbPath = path.resolve(__dirname, 'pos.db');
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Error opening database', err.message);
-  } else {
-    console.log('Connected to the SQLite database.');
-    initDb();
+// Database setup (PostgreSQL / Neon)
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false // Necesario para Neon
   }
 });
 
-function initDb() {
-  db.serialize(() => {
+// Inicializar DB
+async function initDb() {
+  try {
+    const client = await pool.connect();
+    
     // Tabla para configuración (Categorías y Productos guardados como JSON)
-    db.run(`CREATE TABLE IF NOT EXISTS app_config (
-      key TEXT PRIMARY KEY,
-      value TEXT
-    )`);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS app_config (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      );
+    `);
 
     // Tabla para Ventas
-    db.run(`CREATE TABLE IF NOT EXISTS sales (
-      id TEXT PRIMARY KEY,
-      timestamp INTEGER,
-      total REAL,
-      type TEXT,
-      items TEXT
-    )`);
-  });
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS sales (
+        id TEXT PRIMARY KEY,
+        timestamp BIGINT,
+        total REAL,
+        type TEXT,
+        items TEXT
+      );
+    `);
+    
+    console.log('✅ Connected to Neon PostgreSQL database and tables verified.');
+    client.release();
+  } catch (err) {
+    console.error('❌ Error initializing database:', err);
+  }
 }
+
+initDb();
 
 // Routes
 
@@ -94,12 +105,11 @@ app.post('/api/login', (req, res) => {
 });
 
 // GET Configuration (Categories & Products)
-app.get('/api/config', (req, res) => {
-  db.get("SELECT value FROM app_config WHERE key = ?", ['categories'], (err, row) => {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
+app.get('/api/config', async (req, res) => {
+  try {
+    const result = await pool.query("SELECT value FROM app_config WHERE key = $1", ['categories']);
+    const row = result.rows[0];
+
     // Si no hay configuración guardada, devolver null o array vacío
     const categories = row ? JSON.parse(row.value) : null;
     
@@ -112,11 +122,14 @@ app.get('/api/config', (req, res) => {
         port: PORT,
         publicUrl: serverUrl 
     });
-  });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // POST Configuration (Save Categories & Products)
-app.post('/api/config', (req, res) => {
+app.post('/api/config', async (req, res) => {
   const { categories } = req.body;
   if (!categories) {
     res.status(400).json({ error: 'Categories data required' });
@@ -124,41 +137,44 @@ app.post('/api/config', (req, res) => {
   }
 
   const jsonVal = JSON.stringify(categories);
-  db.run(`INSERT INTO app_config (key, value) VALUES (?, ?)
-    ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-    ['categories', jsonVal],
-    function(err) {
-      if (err) {
-        res.status(500).json({ error: err.message });
-        return;
-      }
-      
-      // Notificar a todos los clientes conectados que hubo cambios
-      io.emit('config_updated', categories);
-      
-      res.json({ message: 'Configuration saved successfully' });
-    }
-  );
+  
+  try {
+    await pool.query(`
+      INSERT INTO app_config (key, value) VALUES ($1, $2)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value
+    `, ['categories', jsonVal]);
+
+    // Notificar a todos los clientes conectados que hubo cambios
+    io.emit('config_updated', categories);
+    
+    res.json({ message: 'Configuration saved successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // GET Sales
-app.get('/api/sales', (req, res) => {
-  db.all("SELECT * FROM sales ORDER BY timestamp DESC LIMIT 1000", [], (err, rows) => {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
+app.get('/api/sales', async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM sales ORDER BY timestamp DESC LIMIT 1000");
+    const rows = result.rows;
+    
     // Parse items JSON for each row
     const sales = rows.map(row => ({
       ...row,
-      items: JSON.parse(row.items)
+      items: JSON.parse(row.items),
+      timestamp: Number(row.timestamp) // Asegurar que sea número (BigInt puede venir como string)
     }));
     res.json(sales);
-  });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // POST Sale (New Ticket)
-app.post('/api/sales', (req, res) => {
+app.post('/api/sales', async (req, res) => {
   const sale = req.body;
   // sale object expected: { id, timestamp, total, type, items: [] }
   
@@ -169,20 +185,20 @@ app.post('/api/sales', (req, res) => {
 
   const itemsJson = JSON.stringify(sale.items);
   
-  db.run(`INSERT INTO sales (id, timestamp, total, type, items) VALUES (?, ?, ?, ?, ?)`,
-    [sale.id, sale.timestamp, sale.total, sale.type, itemsJson],
-    function(err) {
-      if (err) {
-        res.status(500).json({ error: err.message });
-        return;
-      }
-      res.json({ message: 'Sale saved successfully', id: sale.id });
-    }
-  );
+  try {
+    await pool.query(
+      `INSERT INTO sales (id, timestamp, total, type, items) VALUES ($1, $2, $3, $4, $5)`,
+      [sale.id, sale.timestamp, sale.total, sale.type, itemsJson]
+    );
+    res.json({ message: 'Sale saved successfully', id: sale.id });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // POST Sync (Batch Sales)
-app.post('/api/sync', (req, res) => {
+app.post('/api/sync', async (req, res) => {
   const { tickets } = req.body; // Expecting { tickets: [...] }
   
   if (!tickets || !Array.isArray(tickets)) {
@@ -190,59 +206,33 @@ app.post('/api/sync', (req, res) => {
     return;
   }
 
+  // MODO DEMO: Simular sincronización exitosa sin guardar en DB (Para evitar complejidad en este paso rápido)
+  // En producción, aquí haríamos un INSERT masivo.
+  console.log(`📥 Recibidos ${tickets.length} tickets para sincronizar. Emitiendo al visor...`);
+  
+  // Emitir al visor para que se vea la animación
+  io.emit('new_data', tickets);
+  
+  // Guardado Real en PostgreSQL (Iterativo simple)
   let addedCount = 0;
-  let errors = [];
-
-  const stmt = db.prepare(`INSERT OR IGNORE INTO sales (id, timestamp, total, type, items) VALUES (?, ?, ?, ?, ?)`);
-
-  db.serialize(() => {
-    // MODO DEMO: Simular sincronización exitosa sin guardar en DB
-    console.log(`📥 (DEMO) Recibidos ${tickets.length} tickets para sincronizar. Emitiendo al visor...`);
-    
-    // Emitir al visor para que se vea la animación
-    io.emit('new_data', tickets);
-    
-    res.json({ 
-      message: 'Sync completed (DEMO MODE)', 
-      added: tickets.length, 
-      total: tickets.length
-    });
-
-    /*
-    db.run("BEGIN TRANSACTION");
-
-    tickets.forEach(sale => {
-      if (!sale.id || !sale.items) return;
-      
-      const itemsJson = JSON.stringify(sale.items);
-      stmt.run([sale.id, sale.timestamp, sale.total, sale.type, itemsJson], function(err) {
-        if (err) {
-          errors.push({ id: sale.id, error: err.message });
-        } else if (this.changes > 0) {
+  for (const sale of tickets) {
+      if (!sale.id || !sale.items) continue;
+      try {
+          const itemsJson = JSON.stringify(sale.items);
+          await pool.query(
+              `INSERT INTO sales (id, timestamp, total, type, items) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING`,
+              [sale.id, sale.timestamp, sale.total, sale.type, itemsJson]
+          );
           addedCount++;
-        }
-      });
-    });
-
-    db.run("COMMIT", (err) => {
-      stmt.finalize();
-      if (err) {
-        res.status(500).json({ error: 'Transaction commit failed' });
-      } else {
-        res.json({ 
-          message: 'Sync completed', 
-          added: addedCount, 
-          total: tickets.length,
-          errors: errors.length > 0 ? errors : undefined 
-        });
-
-        // Notificar al visor web si hay nuevos tickets
-        if (addedCount > 0) {
-            io.emit('new_data', tickets);
-        }
+      } catch (e) {
+          console.error(`Error syncing ticket ${sale.id}`, e);
       }
-    });
-    */
+  }
+
+  res.json({ 
+    message: 'Sync completed', 
+    added: addedCount, 
+    total: tickets.length
   });
 });
 
@@ -267,34 +257,32 @@ io.on('connection', (socket) => {
     });
 
     // Sync: Master responds with data
-    socket.on('sync:master_upload', (data) => {
+    socket.on('sync:master_upload', async (data) => {
         if (!data || !data.categories) return;
         console.log(`📥 [Sync] Maestro ha enviado configuración actualizada (${data.categories.length} categorías).`);
         
         const categories = data.categories;
         const jsonVal = JSON.stringify(categories);
         
-        // Save to DB
-        db.run(`INSERT INTO app_config (key, value) VALUES (?, ?)
-          ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-          ['categories', jsonVal],
-          function(err) {
-            if (err) {
-              console.error('Error saving master config:', err.message);
-              return;
-            }
+        try {
+            await pool.query(`
+              INSERT INTO app_config (key, value) VALUES ($1, $2)
+              ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            `, ['categories', jsonVal]);
+            
             // Broadcast update to ALL clients
             io.emit('config_updated', categories);
             console.log('✅ Configuración sincronizada y distribuida a todos.');
-          }
-        );
+        } catch (err) {
+             console.error('Error saving master config:', err.message);
+        }
     });
 });
 
 // Start server
 server.listen(PORT, () => {
   const displayUrl = PUBLIC_URL || `http://${LOCAL_IP}:${PORT}`;
-  console.log(`\n🚀 SERVIDOR POS LISTO`);
+  console.log(`\n🚀 SERVIDOR POS (Neon/Postgres) LISTO`);
   console.log(`📡 API & Socket: http://localhost:${PORT}`);
   console.log(`📺 Visor Web:    http://localhost:${PORT}/`);
   console.log(`📱 QR Apunta a:  ${displayUrl}/api/sync\n`);

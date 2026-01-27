@@ -44,6 +44,12 @@ export function ConfigPage({ categories, onUpdateCategory }: ConfigPageProps) {
     }
   }
 
+  function handleLogout() {
+    localStorage.removeItem('pos-role')
+    setIsAuthenticated(false)
+    window.location.reload()
+  }
+
   function handleProductChange(product: Product, field: keyof Product, value: string | number) {
     if (!selectedCategory) return
 
@@ -188,6 +194,15 @@ export function ConfigPage({ categories, onUpdateCategory }: ConfigPageProps) {
           title="Volver al POS"
         >
           <CornerUpLeft size={16} />
+        </button>
+
+        <button 
+          className="config-back-icon-btn" 
+          onClick={handleLogout}
+          title="Cerrar Sesión (Dejar de ser Maestro)"
+          style={{ marginLeft: '10px', backgroundColor: '#e74c3c' }}
+        >
+          <LogOut size={16} />
         </button>
 
         {categories.map(cat => (
