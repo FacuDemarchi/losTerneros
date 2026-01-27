@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useRef } from 'react'
 import type { Category } from '../types'
 import { useNavigate } from 'react-router-dom'
 
@@ -21,7 +21,7 @@ export function CategoryStrip({
 }: CategoryStripProps) {
   const navigate = useNavigate()
   const tapCountRef = useRef(0)
-  const tapTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   function handleSecretTap() {
     // Si hay una acción normal (Mostrar Precios), la ejecutamos
