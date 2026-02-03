@@ -16,7 +16,15 @@ interface POSPageProps {
 }
 
 export function POSPage({ categories, isOffline }: POSPageProps) {
-  const [selectedCategoryId, setSelectedCategoryId] = useState(categories[0]?.id)
+  const visibleCategories = useMemo(
+    () => categories.filter(c => !c.disabled).map(cat => ({
+      ...cat,
+      products: cat.products.filter(p => !p.disabled)
+    })).filter(cat => cat.products.length > 0 || !cat.disabled), // Solo mostrar si tiene productos habilitados o es una categoría habilitada (ajustar según preferencia)
+    [categories]
+  )
+
+  const [selectedCategoryId, setSelectedCategoryId] = useState(visibleCategories[0]?.id)
   const [ticketItems, setTicketItems] = useLocalStorage<TicketItem[]>('pos-current-ticket', [])
   const [closedTickets, setClosedTickets] = useLocalStorage<ClosedTicket[]>('pos-closed-tickets', [])
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
@@ -28,8 +36,8 @@ export function POSPage({ categories, isOffline }: POSPageProps) {
   }, [])
 
   const selectedCategory = useMemo(
-    () => categories.find((c) => c.id === selectedCategoryId) ?? categories[0],
-    [selectedCategoryId, categories],
+    () => visibleCategories.find((c) => c.id === selectedCategoryId) ?? visibleCategories[0],
+    [selectedCategoryId, visibleCategories],
   )
 
   const grandTotal = useMemo(
@@ -203,7 +211,7 @@ export function POSPage({ categories, isOffline }: POSPageProps) {
 
   function handleSelectNormal() {
     const newFlashing: Record<string, boolean> = {}
-    categories.forEach(cat => {
+    visibleCategories.forEach(cat => {
         cat.products.forEach(prod => {
             newFlashing[prod.id] = true
         })
@@ -223,7 +231,7 @@ export function POSPage({ categories, isOffline }: POSPageProps) {
     <div className="pos-root">
       <div className="pos-main">
         <CategoryStrip
-          categories={categories}
+          categories={visibleCategories}
           selectedCategoryId={selectedCategory?.id}
           onSelectCategory={handleCategoryClick}
           onOpenTicket={() => setIsTicketOpen(true)}

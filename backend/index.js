@@ -167,14 +167,11 @@ app.get('/api/config', async (req, res) => {
     const result = await pool.query("SELECT value FROM app_config WHERE key = $1", [configKey]);
     const row = result.rows[0];
 
-    // Si no hay configuración guardada para el local, intentar devolver la global
+    // Si no hay configuración guardada para el local, devolver vacío
     let categories = row ? JSON.parse(row.value) : null;
     
     if (!categories && storeId) {
-      const globalRes = await pool.query("SELECT value FROM app_config WHERE key = $1", ['categories']);
-      if (globalRes.rows[0]) {
-        categories = JSON.parse(globalRes.rows[0].value);
-      }
+      categories = []; // No heredar de la configuración global
     }
     
     // Si existe una URL pública inyectada (ngrok), la enviamos preferentemente
@@ -258,35 +255,6 @@ app.get('/viewer', (req, res) => {
 // Socket.io Connection
 io.on('connection', (socket) => {
     console.log('🔌 Cliente conectado:', socket.id);
-
-    // Sync: Client asks for Master
-    socket.on('sync:request_master', () => {
-        console.log(`📢 [Sync] Cliente ${socket.id} busca al Maestro...`);
-        // Broadcast to everyone EXCEPT sender
-        socket.broadcast.emit('sync:ask_master', { requesterId: socket.id });
-    });
-
-    // Sync: Master responds with data
-    socket.on('sync:master_upload', async (data) => {
-        if (!data || !data.categories) return;
-        console.log(`📥 [Sync] Maestro ha enviado configuración actualizada (${data.categories.length} categorías).`);
-        
-        const categories = data.categories;
-        const jsonVal = JSON.stringify(categories);
-        
-        try {
-            await pool.query(`
-              INSERT INTO app_config (key, value) VALUES ($1, $2)
-              ON CONFLICT(key) DO UPDATE SET value = excluded.value
-            `, ['categories', jsonVal]);
-            
-            // Broadcast update to ALL clients
-            io.emit('config_updated', categories);
-            console.log('✅ Configuración sincronizada y distribuida a todos.');
-        } catch (err) {
-             console.error('Error saving master config:', err.message);
-        }
-    });
 });
 
 // Start server

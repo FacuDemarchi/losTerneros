@@ -1,9 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import type { Category, Product, Store } from '../types'
 import { useNavigate } from 'react-router-dom'
-import { CornerUpLeft, Download, Upload, QrCode, LogOut, Plus, GripVertical, Trash2, Store as StoreIcon, Edit2, Check, X, Tag } from 'lucide-react'
-import CryptoJS from 'crypto-js'
-import QRCode from 'react-qr-code'
+import { CornerUpLeft, LogOut, Plus, GripVertical, Trash2, Store as StoreIcon, Edit2, Check, X, Eye, EyeOff } from 'lucide-react'
 import { api } from '../services/api'
 import './ConfigPage.css'
 import { DebouncedInput } from '../components/DebouncedInput'
@@ -14,26 +12,23 @@ interface ConfigPageProps {
   onUpdateCategories: (categories: Category[]) => void
 }
 
-const SECRET_KEY = 'los-terneros-secure-backup-key-2025'
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 
 export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }: ConfigPageProps) {
   const navigate = useNavigate()
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [importStatus, setImportStatus] = useState('')
-  const [showQR, setShowQR] = useState(false)
 
   const [stores, setStores] = useState<Store[]>([])
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(localStorage.getItem('selected-store-id'))
   const [editingStoreId, setEditingStoreId] = useState<string | null>(null)
   const [tempStoreName, setTempStoreName] = useState('')
   const [tempStorePassword, setTempStorePassword] = useState('')
+  const [isConfigLoading, setIsConfigLoading] = useState(false)
   const role = localStorage.getItem('pos-role') as 'admin' | 'master'
 
-  const [selectedCategoryId, setSelectedCategoryId] = useState(categories[0]?.id)
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>(undefined)
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null)
   const [swipedProductId, setSwipedProductId] = useState<string | null>(null)
   const [touchStart, setTouchStart] = useState<number | null>(null)
@@ -53,17 +48,24 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
   }, [isAuthenticated])
 
   async function handleSelectStore(storeId: string) {
+    setIsConfigLoading(true)
     setSelectedStoreId(storeId)
     localStorage.setItem('selected-store-id', storeId)
-    const config = await api.getConfig(storeId)
-    if (config && config.categories) {
-      onUpdateCategories(config.categories)
-      if (config.categories.length > 0) {
-        setSelectedCategoryId(config.categories[0].id)
+    try {
+      const config = await api.getConfig(storeId)
+      if (config && config.categories) {
+        onUpdateCategories(config.categories)
+        if (config.categories.length > 0) {
+          setSelectedCategoryId(config.categories[0].id)
+        } else {
+          setSelectedCategoryId(undefined)
+        }
+      } else {
+        onUpdateCategories([])
+        setSelectedCategoryId(undefined)
       }
-    } else {
-      onUpdateCategories([])
-      setSelectedCategoryId(undefined)
+    } finally {
+      setIsConfigLoading(false)
     }
   }
 
@@ -153,12 +155,31 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
     }
   }
 
+  function handleToggleCategoryDisabled(categoryId: string) {
+    const newCategories = categories.map(c => 
+      c.id === categoryId ? { ...c, disabled: !c.disabled } : c
+    )
+    onUpdateCategories(newCategories)
+  }
+
+  function handleToggleProductDisabled(product: Product) {
+    if (!selectedCategory) return
+    const updatedProducts = selectedCategory.products.map(p => 
+      p.id === product.id ? { ...p, disabled: !p.disabled } : p
+    )
+    onUpdateCategory({
+      ...selectedCategory,
+      products: updatedProducts
+    })
+  }
+
   function handleDragStart(index: number) {
     setDraggedItemIndex(index)
   }
 
   function handleDragOver(e: React.DragEvent, index: number) {
     e.preventDefault()
+    if (role !== 'master') return // Solo Master puede reordenar
     if (draggedItemIndex === null || draggedItemIndex === index) return
     if (!selectedCategory) return
 
@@ -184,6 +205,7 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
   }
 
   function handleTouchMove(e: React.TouchEvent, productId: string) {
+    if (role !== 'master') return // Solo Master puede deslizar para borrar
     if (touchStart === null) return
     const currentX = e.touches[0].clientX
     const diff = touchStart - currentX
@@ -203,6 +225,7 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
   }
 
   function handleDeleteProduct(productId: string) {
+    if (role !== 'master') return // Solo Master puede borrar
     if (!selectedCategory) return
     
     const updatedProducts = selectedCategory.products.filter(p => p.id !== productId)
@@ -217,12 +240,12 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
     setError('')
     try {
       const result = await api.login(password)
-      if (result.success && result.role) {
+      if (result.success && (result.role === 'admin' || result.role === 'master')) {
         setIsAuthenticated(true)
         localStorage.setItem('pos-role', result.role)
-        console.log(`Rol activo: ${result.role}`)
+        console.log(`Rol autorizado: ${result.role}`)
       } else {
-        setError(result.error || 'Clave incorrecta')
+        setError('Acceso denegado. Solo Admin o Master.')
       }
     } catch (e) {
       setError('Error de conexión con el servidor')
@@ -236,6 +259,7 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
   }
 
   function handleProductChange(product: Product, field: keyof Product, value: string | number) {
+    if (role !== 'master') return // Solo Master puede editar
     if (!selectedCategory) return
 
     const updatedProduct = { ...product, [field]: value }
@@ -250,6 +274,7 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
   }
 
   function handleAddProduct() {
+    if (role !== 'master') return // Solo Master puede agregar
     if (!selectedCategory) return
 
     const newProduct: Product = {
@@ -265,96 +290,6 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
     })
   }
 
-  function handleExportData(type: 'products' | 'tickets') {
-    const data: any = {
-      timestamp: new Date().toISOString(),
-      version: '1.0',
-      type
-    }
-
-    if (type === 'products') {
-      data.categories = JSON.parse(localStorage.getItem('pos-categories') || '[]')
-    } else {
-      data.tickets = JSON.parse(localStorage.getItem('pos-closed-tickets') || '[]')
-    }
-
-    // Convertir a string JSON
-    const jsonString = JSON.stringify(data)
-    
-    // Encriptar
-    const encrypted = CryptoJS.AES.encrypt(jsonString, SECRET_KEY).toString()
-    
-    // Crear Blob con datos encriptados
-    const blob = new Blob([encrypted], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    // Usar extensión .dat para indicar que no es JSON plano legible
-    a.download = `backup-${type}-${new Date().toISOString().split('T')[0]}.dat`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }
-
-  function handleImportClick(type: 'products' | 'tickets') {
-    if (fileInputRef.current) {
-        fileInputRef.current.setAttribute('data-import-type', type)
-        fileInputRef.current.click()
-    }
-  }
-
-  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    const importType = event.target.getAttribute('data-import-type')
-    if (!file) return
-
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      try {
-        const encryptedContent = e.target?.result as string
-        
-        // Desencriptar
-        const bytes = CryptoJS.AES.decrypt(encryptedContent, SECRET_KEY)
-        const decryptedString = bytes.toString(CryptoJS.enc.Utf8)
-        
-        if (!decryptedString) {
-            throw new Error('No se pudo desencriptar el archivo (posiblemente corrupto o clave incorrecta)')
-        }
-
-        const data = JSON.parse(decryptedString)
-
-        if (importType === 'products') {
-            if (data.categories) {
-                localStorage.setItem('pos-categories', JSON.stringify(data.categories))
-                setImportStatus('Productos restaurados correctamente.')
-            } else {
-                setImportStatus('El archivo no contiene productos válidos.')
-                return
-            }
-        } else if (importType === 'tickets') {
-            if (data.tickets) {
-                localStorage.setItem('pos-closed-tickets', JSON.stringify(data.tickets))
-                setImportStatus('Ventas restauradas correctamente.')
-            } else {
-                setImportStatus('El archivo no contiene ventas válidas.')
-                return
-            }
-        }
-
-        setTimeout(() => {
-          window.location.reload()
-        }, 1500)
-      } catch (err) {
-        console.error(err)
-        setImportStatus('Error: Archivo inválido o corrupto.')
-      }
-    }
-    reader.readAsText(file)
-    // Reset input
-    event.target.value = ''
-  }
-
   if (!isAuthenticated) {
     return (
       <div className="login-container">
@@ -367,6 +302,7 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+            autoFocus
           />
           <button 
             className="login-btn" 
@@ -393,7 +329,7 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
         <div className="section-header">
           <div className="header-title">
             <StoreIcon size={20} />
-            <h2>Locales</h2>
+            <h2>{role === 'admin' ? 'Gestión de Locales' : 'Seleccionar Local'}</h2>
           </div>
           {role === 'admin' && (
             <button className="add-store-btn" onClick={handleAddStore}>
@@ -483,14 +419,14 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
         <button 
           className="config-back-icon-btn" 
           onClick={handleLogout}
-          title="Cerrar Sesión (Dejar de ser Maestro)"
+          title={role === 'master' ? "Cerrar Sesión (Dejar de ser Maestro)" : "Cerrar Sesión"}
           style={{ marginLeft: '10px', backgroundColor: '#e74c3c' }}
         >
           <LogOut size={16} />
         </button>
 
-        {categories.map(cat => (
-          <div key={cat.id} className="category-pill-container">
+        {!isConfigLoading && categories.map(cat => (
+          <div key={cat.id} className={`category-pill-container ${cat.disabled ? 'disabled' : ''}`}>
             <button
               className={`config-category-btn ${selectedCategoryId === cat.id ? 'active' : ''}`}
               onClick={() => setSelectedCategoryId(cat.id)}
@@ -499,6 +435,13 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
             </button>
             {role === 'master' && selectedCategoryId === cat.id && (
               <div className="category-actions">
+                <button 
+                  className="cat-action-btn" 
+                  onClick={() => handleToggleCategoryDisabled(cat.id)}
+                  title={cat.disabled ? "Habilitar categoría" : "Deshabilitar categoría"}
+                >
+                  {cat.disabled ? <Eye size={12}/> : <EyeOff size={12}/>}
+                </button>
                 <button 
                   className="cat-action-btn" 
                   onClick={() => handleRenameCategory(cat.id)}
@@ -518,7 +461,7 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
           </div>
         ))}
 
-        {role === 'master' && selectedStoreId && (
+        {role === 'master' && selectedStoreId && !isConfigLoading && (
           <button 
             className="add-category-pill-btn" 
             onClick={handleAddCategory}
@@ -532,7 +475,12 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
       {!selectedStoreId ? (
         <div className="no-store-selected-msg">
           <StoreIcon size={48} />
-          <p>Seleccione un local para gestionar sus productos y precios.</p>
+          <p>Seleccione un local para ver sus productos y precios.</p>
+        </div>
+      ) : isConfigLoading ? (
+        <div className="no-store-selected-msg">
+          <div className="spinner"></div>
+          <p>Cargando configuración desde Neon...</p>
         </div>
       ) : (
         <div className="config-table-container">
@@ -540,18 +488,19 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
             <thead>
               <tr>
                 <th style={{ width: '40px' }}></th>
-                <th style={{ width: '50%' }}>Nombre</th>
-                <th style={{ width: '25%', textAlign: 'right' }}>Precio</th>
-                <th style={{ width: '25%', textAlign: 'center' }}>Unidad</th>
+                <th style={{ width: '40%' }}>Nombre</th>
+                <th style={{ width: '20%', textAlign: 'right' }}>Precio</th>
+                <th style={{ width: '20%', textAlign: 'center' }}>Unidad</th>
+                <th style={{ width: '20%', textAlign: 'center' }}>{role === 'master' ? 'Acciones' : 'Estado'}</th>
               </tr>
             </thead>
             <tbody>
               {selectedCategory?.products.map((product, index) => (
                 <tr 
                   key={product.id}
-                  draggable
+                  draggable={role === 'master'}
                   onDragStart={(e) => {
-                    // Solo permitir arrastrar si se hace desde el handle
+                    if (role !== 'master') return;
                     const target = e.target as HTMLElement;
                     if (!target.closest('.drag-handle')) {
                       e.preventDefault();
@@ -561,13 +510,13 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
                   }}
                   onDragOver={(e) => handleDragOver(e, index)}
                   onDragEnd={handleDragEnd}
-                  className={`${draggedItemIndex === index ? 'dragging' : ''} ${swipedProductId === product.id ? 'swiped' : ''}`}
+                  className={`${draggedItemIndex === index ? 'dragging' : ''} ${swipedProductId === product.id ? 'swiped' : ''} ${product.disabled ? 'product-disabled' : ''}`}
                   onTouchStart={(e) => handleTouchStart(e, product.id)}
                   onTouchMove={(e) => handleTouchMove(e, product.id)}
                   onTouchEnd={handleTouchEnd}
                 >
                   <td className="drag-handle-cell">
-                    <div className="drag-handle">
+                    <div className={`drag-handle ${role !== 'master' ? 'disabled' : ''}`}>
                       <GripVertical size={20} />
                     </div>
                   </td>
@@ -577,6 +526,7 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
                       type="text"
                       value={product.name}
                       onChangeValue={(val) => handleProductChange(product, 'name', val)}
+                      readOnly={role !== 'master'}
                     />
                   </td>
                   <td style={{ textAlign: 'right' }}>
@@ -586,93 +536,70 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
                       value={product.pricePerUnit}
                       onChangeValue={(val) => handleProductChange(product, 'pricePerUnit', Number(val))}
                       style={{ textAlign: 'right' }}
+                      readOnly={role !== 'master'}
                     />
                   </td>
-                   <td style={{ textAlign: 'center', position: 'relative' }}>
+                  <td style={{ textAlign: 'center' }}>
                     <select
                       className="config-select"
                       value={product.unitType}
                       onChange={(e) => handleProductChange(product, 'unitType', e.target.value)}
+                      disabled={role !== 'master'}
                     >
                       <option value="weight">Kg</option>
                       <option value="unit">Un</option>
                     </select>
+                  </td>
+                  <td style={{ textAlign: 'center', position: 'relative' }}>
+                    <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
+                      {role === 'master' ? (
+                        <>
+                          <button 
+                            className="store-icon-btn" 
+                            onClick={() => handleToggleProductDisabled(product)}
+                            title={product.disabled ? "Habilitar" : "Deshabilitar"}
+                          >
+                            {product.disabled ? <Eye size={16}/> : <EyeOff size={16}/>}
+                          </button>
+                          <button 
+                            className="store-icon-btn delete"
+                            onClick={() => handleDeleteProduct(product.id)}
+                            title="Eliminar producto"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </>
+                      ) : (
+                        <span style={{ fontSize: '12px', color: product.disabled ? '#ff5252' : '#4caf50' }}>
+                          {product.disabled ? 'Inactivo' : 'Activo'}
+                        </span>
+                      )}
+                    </div>
                     
-                    <button 
-                      className="mobile-delete-btn"
-                      onClick={() => handleDeleteProduct(product.id)}
-                      title="Eliminar producto"
-                    >
-                      <Trash2 size={20} />
-                    </button>
+                    {role === 'master' && (
+                      <button 
+                        className="mobile-delete-btn"
+                        onClick={() => handleDeleteProduct(product.id)}
+                        title="Eliminar producto"
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <div className="add-product-container">
-            <button className="add-product-btn" onClick={handleAddProduct}>
-              <Plus size={18} />
-              Agregar Producto
-            </button>
-          </div>
+          {role === 'master' && (
+            <div className="add-product-container">
+              <button className="add-product-btn" onClick={handleAddProduct}>
+                <Plus size={18} />
+                Agregar Producto
+              </button>
+            </div>
+          )}
         </div>
       )}
-
-      <div className="data-management-section">
-        <h3>Gestión de Datos</h3>
-        
-        <div className="data-actions">
-          <div className="data-group">
-             <span className="data-group-title">Sincronización (Modo Receptor)</span>
-             <button className="data-btn qr-btn" onClick={() => setShowQR(!showQR)}>
-                <QrCode size={18} />
-                {showQR ? 'Ocultar QR' : 'Mostrar QR Servidor'}
-             </button>
-             {showQR && (
-                <div style={{ marginTop: '10px', background: 'white', padding: '10px', display: 'inline-block', borderRadius: '8px' }}>
-                    <QRCode value={`${API_URL}/sync`} size={150} />
-                    <p style={{ color: 'black', fontSize: '10px', marginTop: '5px', textAlign: 'center' }}>
-                        {API_URL}/sync
-                    </p>
-                </div>
-             )}
-          </div>
-
-          <div className="data-group">
-            <span className="data-group-title">Productos y Precios</span>
-            <button className="data-btn export-btn" onClick={() => handleExportData('products')}>
-              <Download size={18} />
-              Exportar Productos
-            </button>
-            <button className="data-btn import-btn" onClick={() => handleImportClick('products')}>
-              <Upload size={18} />
-              Importar Productos
-            </button>
-          </div>
-
-          <div className="data-group">
-            <span className="data-group-title">Historial de Ventas</span>
-            <button className="data-btn export-btn" onClick={() => handleExportData('tickets')}>
-              <Download size={18} />
-              Exportar Ventas
-            </button>
-            <button className="data-btn import-btn" onClick={() => handleImportClick('tickets')}>
-              <Upload size={18} />
-              Importar Ventas
-            </button>
-          </div>
-          
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleFileChange} 
-            style={{ display: 'none' }} 
-            accept=".dat"
-          />
-        </div>
-        {importStatus && <p className="import-status">{importStatus}</p>}
-      </div>
     </div>
   )
 }

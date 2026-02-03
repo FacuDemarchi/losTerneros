@@ -11,12 +11,14 @@ export type Product = {
   name: string
   pricePerUnit: number
   unitType: UnitType
+  disabled?: boolean
 }
 
 export type Category = {
   id: string
   label: string
   products: Product[]
+  disabled?: boolean
 }
 
 export type TicketItem = {
