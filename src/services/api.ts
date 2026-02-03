@@ -1,4 +1,4 @@
-import type { Category, ClosedTicket } from '../types'
+import type { Category, ClosedTicket, Store } from '../types'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 
@@ -37,10 +37,56 @@ export const api = {
     }
   },
 
-  // Configuration
-  async getConfig(): Promise<{ categories: Category[] } | null> {
+  // Stores
+  async getStores(): Promise<Store[]> {
     try {
-      const response = await fetch(`${API_URL}/config`, {
+      console.log('Fetching stores from:', `${API_URL}/stores`);
+      const response = await fetch(`${API_URL}/stores`, { headers: BASE_HEADERS });
+      
+      const text = await response.text();
+      if (!response.ok) {
+        throw new Error(`Failed to fetch stores: ${response.status} ${response.statusText} - ${text.substring(0, 100)}`);
+      }
+      
+      return JSON.parse(text);
+    } catch (error) {
+      reportError('Error fetching stores', error);
+      return [];
+    }
+  },
+
+  async saveStore(store: Store): Promise<boolean> {
+    try {
+      const response = await fetch(`${API_URL}/stores`, {
+        method: 'POST',
+        headers: BASE_HEADERS,
+        body: JSON.stringify(store),
+      });
+      return response.ok;
+    } catch (error) {
+      reportError('Error saving store', error);
+      return false;
+    }
+  },
+
+  async deleteStore(id: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${API_URL}/stores/${id}`, {
+        method: 'DELETE',
+        headers: BASE_HEADERS,
+      });
+      return response.ok;
+    } catch (error) {
+      reportError('Error deleting store', error);
+      return false;
+    }
+  },
+
+  // Configuration
+  async getConfig(storeId?: string): Promise<{ categories: Category[] } | null> {
+    try {
+      const url = storeId ? `${API_URL}/config?storeId=${storeId}` : `${API_URL}/config`;
+      const response = await fetch(url, {
           headers: BASE_HEADERS
       })
       
@@ -60,12 +106,12 @@ export const api = {
     }
   },
 
-  async saveConfig(categories: Category[]): Promise<boolean> {
+  async saveConfig(categories: Category[], storeId?: string): Promise<boolean> {
     try {
       const response = await fetch(`${API_URL}/config`, {
         method: 'POST',
         headers: BASE_HEADERS,
-        body: JSON.stringify({ categories }),
+        body: JSON.stringify({ categories, storeId }),
       })
       return response.ok
     } catch (error) {

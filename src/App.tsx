@@ -13,7 +13,8 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
 function App() {
   const [categories, setCategories] = useLocalStorage<Category[]>('pos-categories', defaultCategories)
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  // Iniciamos siempre en 'loading' para garantizar sincronización
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error' | 'offline'>('loading')
   const categoriesRef = useRef(categories)
 
   // Keep ref updated for socket callbacks
@@ -43,17 +44,15 @@ function App() {
         }
         setStatus('ready');
       } else {
-        // Fetch failed. Check if we are Master.
-        const role = localStorage.getItem('pos-role');
-        if (role === 'master') {
-            console.log('Backend down, but I am Master. Using local data.');
-            setStatus('ready');
+        // Fetch failed (server down or internet issues)
+        console.warn('Backend fetch failed. Checking for offline availability...');
+        
+        // Si tenemos datos locales, ofrecemos modo offline
+        if (categoriesRef.current && categoriesRef.current.length > 0) {
+            setStatus('offline');
         } else {
-            console.warn('Backend unavailable and not Master.');
-            // Wait a bit to see if socket connects or master responds
-            setTimeout(() => {
-                if (isMounted) setStatus(s => s === 'loading' ? 'error' : s);
-            }, 3000);
+            // Si no hay nada de nada, es un error fatal
+            setStatus('error');
         }
       }
     });
@@ -65,10 +64,21 @@ function App() {
       socket.emit('sync:request_master');
     });
 
-    socket.on('config_updated', (newCategories: Category[]) => {
-      console.log('⚠️ Precios actualizados desde el servidor!');
-      setCategories(newCategories);
-      setStatus('ready');
+    socket.on('config_updated', (data: any) => {
+      console.log('⚠️ Configuración recibida:', data);
+      
+      // Manejar tanto el formato viejo (Category[]) como el nuevo ({categories, storeId})
+      const newCategories = Array.isArray(data) ? data : data.categories;
+      const incomingStoreId = Array.isArray(data) ? undefined : data.storeId;
+      
+      const currentStoreId = localStorage.getItem('selected-store-id');
+      
+      // Actualizar si es una actualización global o si coincide con el local seleccionado
+      if (!incomingStoreId || incomingStoreId === currentStoreId) {
+        console.log('⚠️ Precios actualizados!');
+        setCategories(newCategories);
+        setStatus('ready');
+      }
     });
 
     // Listen for requests (Only if I am Master)
@@ -89,12 +99,48 @@ function App() {
   function handleUpdateCategory(updatedCategory: Category) {
     const newCategories = categories.map(c => c.id === updatedCategory.id ? updatedCategory : c)
     setCategories(newCategories)
-    // Sincronizar con backend (Push en tiempo real)
-    api.saveConfig(newCategories)
+    // Sincronizar con backend (usando storeId si existe en localStorage)
+    const storeId = localStorage.getItem('selected-store-id')
+    api.saveConfig(newCategories, storeId || undefined)
+  }
+
+  function handleUpdateCategories(newCategories: Category[]) {
+    setCategories(newCategories)
+    const storeId = localStorage.getItem('selected-store-id')
+    api.saveConfig(newCategories, storeId || undefined)
   }
 
   if (status === 'loading') {
-      return <div className="loading-screen"><h1>Cargando Sistema...</h1></div>
+      return (
+        <div className="loading-screen">
+          <div className="loading-content">
+            <div className="spinner"></div>
+            <h1>Sincronizando Precios</h1>
+            <p>Obteniendo la última configuración desde la nube...</p>
+          </div>
+        </div>
+      )
+  }
+
+  if (status === 'offline') {
+    return (
+        <div className="error-screen offline-mode">
+            <h1>⚠️ Modo Sin Conexión</h1>
+            <p>No se pudo sincronizar con el servidor.</p>
+            <div className="warning-box">
+                <strong>ATENCIÓN:</strong> Los precios mostrados pueden estar <strong>desactualizados</strong>.
+            </div>
+            <p className="error-hint">¿Desea continuar con los datos guardados localmente?</p>
+            <div className="button-group">
+                <button className="primary-button" onClick={() => setStatus('ready')}>
+                    Continuar con Precios Locales
+                </button>
+                <button className="secondary-button" onClick={() => window.location.reload()}>
+                    Reintentar Conexión
+                </button>
+            </div>
+        </div>
+    )
   }
 
   if (status === 'error') {
@@ -111,13 +157,14 @@ function App() {
   return (
     <>
       <Routes>
-        <Route path="/" element={<POSPage categories={categories} />} />
+        <Route path="/" element={<POSPage categories={categories} isOffline={status === 'offline' || (status === 'ready' && !navigator.onLine)} />} />
         <Route 
           path="/config" 
           element={
             <ConfigPage 
               categories={categories} 
               onUpdateCategory={handleUpdateCategory} 
+              onUpdateCategories={handleUpdateCategories}
             />
           } 
         />

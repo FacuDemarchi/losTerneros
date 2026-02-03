@@ -617,6 +617,73 @@
   color: white;
   text-align: center;
   font-family: system-ui, sans-serif;
+  padding: 20px;
+}
+
+.loading-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid rgba(255, 255, 255, 0.1);
+    border-top: 5px solid #fff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.warning-box {
+    background-color: #fff3bf;
+    color: #856404;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 20px 0;
+    max-width: 400px;
+    border: 1px solid #ffeeba;
+}
+
+.button-group {
+    display: flex;
+    gap: 15px;
+    margin-top: 25px;
+}
+
+.primary-button {
+    padding: 12px 24px;
+    background-color: #4caf50;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.offline-badge {
+    background-color: #ff5252;
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    text-align: center;
+    padding: 2px 0;
+    margin-bottom: 4px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    animation: pulse-red 2s infinite;
+}
+
+@keyframes pulse-red {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
 }
 
 .error-screen h1 {

@@ -12,24 +12,19 @@ import '../App.css'
 
 interface POSPageProps {
   categories: Category[]
+  isOffline?: boolean
 }
 
-export function POSPage({ categories }: POSPageProps) {
+export function POSPage({ categories, isOffline }: POSPageProps) {
   const [selectedCategoryId, setSelectedCategoryId] = useState(categories[0]?.id)
   const [ticketItems, setTicketItems] = useLocalStorage<TicketItem[]>('pos-current-ticket', [])
   const [closedTickets, setClosedTickets] = useLocalStorage<ClosedTicket[]>('pos-closed-tickets', [])
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [weighingProduct, setWeighingProduct] = useState<Product | null>(null)
 
-  // Cargar historial de ventas del backend al iniciar
+  // El historial de ventas se mantiene puramente local en el dispositivo
   useEffect(() => {
-    api.getSales().then(sales => {
-      if (sales && sales.length > 0) {
-        // Ordenar por fecha descendente si no vienen ordenadas
-        const sortedSales = sales.sort((a, b) => b.timestamp - a.timestamp)
-        setClosedTickets(sortedSales)
-      }
-    })
+    // Ya no cargamos ventas del backend para mantener la privacidad local
   }, [])
 
   const selectedCategory = useMemo(
@@ -234,6 +229,7 @@ export function POSPage({ categories }: POSPageProps) {
           onOpenTicket={() => setIsTicketOpen(true)}
           onSelectNormal={handleSelectNormal}
           totalQuantity={totalQuantity}
+          isOffline={isOffline}
         />
 
         <ProductsGrid

@@ -1,3 +1,9 @@
+export type Store = {
+  id: string
+  name: string
+  password?: string
+}
+
 export type UnitType = 'weight' | 'unit'
 
 export type Product = {

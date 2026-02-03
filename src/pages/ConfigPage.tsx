@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react'
-import type { Category, Product } from '../types'
+import { useState, useRef, useEffect } from 'react'
+import type { Category, Product, Store } from '../types'
 import { useNavigate } from 'react-router-dom'
-import { CornerUpLeft, Download, Upload, QrCode, LogOut } from 'lucide-react'
+import { CornerUpLeft, Download, Upload, QrCode, LogOut, Plus, GripVertical, Trash2, Store as StoreIcon, Edit2, Check, X, Tag } from 'lucide-react'
 import CryptoJS from 'crypto-js'
 import QRCode from 'react-qr-code'
 import { api } from '../services/api'
@@ -11,12 +11,13 @@ import { DebouncedInput } from '../components/DebouncedInput'
 interface ConfigPageProps {
   categories: Category[]
   onUpdateCategory: (category: Category) => void
+  onUpdateCategories: (categories: Category[]) => void
 }
 
 const SECRET_KEY = 'los-terneros-secure-backup-key-2025'
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 
-export function ConfigPage({ categories, onUpdateCategory }: ConfigPageProps) {
+export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }: ConfigPageProps) {
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -25,9 +26,192 @@ export function ConfigPage({ categories, onUpdateCategory }: ConfigPageProps) {
   const [importStatus, setImportStatus] = useState('')
   const [showQR, setShowQR] = useState(false)
 
+  const [stores, setStores] = useState<Store[]>([])
+  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(localStorage.getItem('selected-store-id'))
+  const [editingStoreId, setEditingStoreId] = useState<string | null>(null)
+  const [tempStoreName, setTempStoreName] = useState('')
+  const [tempStorePassword, setTempStorePassword] = useState('')
+  const role = localStorage.getItem('pos-role') as 'admin' | 'master'
+
   const [selectedCategoryId, setSelectedCategoryId] = useState(categories[0]?.id)
+  const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null)
+  const [swipedProductId, setSwipedProductId] = useState<string | null>(null)
+  const [touchStart, setTouchStart] = useState<number | null>(null)
   
   const selectedCategory = categories.find(c => c.id === selectedCategoryId)
+
+  // Cargar locales al autenticar
+  useEffect(() => {
+    if (isAuthenticated) {
+      api.getStores().then(setStores)
+      
+      // Si hay un local seleccionado, cargar su config
+      if (selectedStoreId) {
+        handleSelectStore(selectedStoreId)
+      }
+    }
+  }, [isAuthenticated])
+
+  async function handleSelectStore(storeId: string) {
+    setSelectedStoreId(storeId)
+    localStorage.setItem('selected-store-id', storeId)
+    const config = await api.getConfig(storeId)
+    if (config && config.categories) {
+      onUpdateCategories(config.categories)
+      if (config.categories.length > 0) {
+        setSelectedCategoryId(config.categories[0].id)
+      }
+    } else {
+      onUpdateCategories([])
+      setSelectedCategoryId(undefined)
+    }
+  }
+
+  async function handleAddStore() {
+    try {
+      // Fallback para crypto.randomUUID si no está disponible (ej: contextos no seguros)
+      const id = (window.crypto && window.crypto.randomUUID) 
+        ? window.crypto.randomUUID() 
+        : Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        
+      const newStore: Store = { id, name: 'Nuevo Local', password: '' }
+      console.log('Intentando agregar local:', newStore);
+      
+      const success = await api.saveStore(newStore)
+      if (success) {
+        const updatedStores = await api.getStores()
+        setStores(updatedStores)
+        setEditingStoreId(id)
+        setTempStoreName('Nuevo Local')
+        setTempStorePassword('')
+      } else {
+        alert('Error al guardar el nuevo local en el servidor.')
+      }
+    } catch (e) {
+      console.error('Error en handleAddStore:', e);
+      alert('Error inesperado al intentar agregar el local.')
+    }
+  }
+
+  async function handleSaveStore(id: string) {
+    const success = await api.saveStore({ id, name: tempStoreName, password: tempStorePassword })
+    if (success) {
+      setStores(await api.getStores())
+      setEditingStoreId(null)
+    }
+  }
+
+  async function handleDeleteStore(id: string) {
+    if (!confirm('¿Estás seguro de eliminar este local? Se borrarán todos sus productos.')) return
+    const success = await api.deleteStore(id)
+    if (success) {
+      setStores(await api.getStores())
+      if (selectedStoreId === id) {
+        setSelectedStoreId(null)
+        localStorage.removeItem('selected-store-id')
+        onUpdateCategories([])
+      }
+    }
+  }
+
+  // Gestión de Categorías
+  function handleAddCategory() {
+    const name = prompt('Nombre de la nueva categoría:')
+    if (!name) return
+    
+    const newCategory: Category = {
+      id: crypto.randomUUID(),
+      label: name,
+      products: []
+    }
+    
+    const newCategories = [...categories, newCategory]
+    onUpdateCategories(newCategories)
+    setSelectedCategoryId(newCategory.id)
+  }
+
+  function handleRenameCategory(categoryId: string) {
+    const category = categories.find(c => c.id === categoryId)
+    if (!category) return
+    
+    const newName = prompt('Nuevo nombre para la categoría:', category.label)
+    if (!newName) return
+    
+    const newCategories = categories.map(c => 
+      c.id === categoryId ? { ...c, label: newName } : c
+    )
+    onUpdateCategories(newCategories)
+  }
+
+  function handleDeleteCategory(categoryId: string) {
+    if (!confirm('¿Eliminar esta categoría y todos sus productos?')) return
+    
+    const newCategories = categories.filter(c => c.id !== categoryId)
+    onUpdateCategories(newCategories)
+    if (selectedCategoryId === categoryId) {
+      setSelectedCategoryId(newCategories[0]?.id)
+    }
+  }
+
+  function handleDragStart(index: number) {
+    setDraggedItemIndex(index)
+  }
+
+  function handleDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault()
+    if (draggedItemIndex === null || draggedItemIndex === index) return
+    if (!selectedCategory) return
+
+    const newProducts = [...selectedCategory.products]
+    const draggedItem = newProducts[draggedItemIndex]
+    newProducts.splice(draggedItemIndex, 1)
+    newProducts.splice(index, 0, draggedItem)
+    
+    setDraggedItemIndex(index)
+    
+    onUpdateCategory({
+      ...selectedCategory,
+      products: newProducts
+    })
+  }
+
+  function handleDragEnd() {
+    setDraggedItemIndex(null)
+  }
+
+  function handleTouchStart(e: React.TouchEvent, productId: string) {
+    setTouchStart(e.touches[0].clientX)
+  }
+
+  function handleTouchMove(e: React.TouchEvent, productId: string) {
+    if (touchStart === null) return
+    const currentX = e.touches[0].clientX
+    const diff = touchStart - currentX
+    
+    // Deslizar a la izquierda revela el botón
+    if (diff > 40) {
+      setSwipedProductId(productId)
+    } 
+    // Deslizar a la derecha lo oculta
+    else if (diff < -40) {
+      setSwipedProductId(null)
+    }
+  }
+
+  function handleTouchEnd() {
+    setTouchStart(null)
+  }
+
+  function handleDeleteProduct(productId: string) {
+    if (!selectedCategory) return
+    
+    const updatedProducts = selectedCategory.products.filter(p => p.id !== productId)
+    onUpdateCategory({
+      ...selectedCategory,
+      products: updatedProducts
+    })
+    setSwipedProductId(null)
+  }
 
   async function handleLogin() {
     setError('')
@@ -62,6 +246,22 @@ export function ConfigPage({ categories, onUpdateCategory }: ConfigPageProps) {
     onUpdateCategory({
       ...selectedCategory,
       products: updatedProducts
+    })
+  }
+
+  function handleAddProduct() {
+    if (!selectedCategory) return
+
+    const newProduct: Product = {
+      id: crypto.randomUUID(),
+      name: 'Nuevo Producto',
+      pricePerUnit: 0,
+      unitType: 'unit'
+    }
+
+    onUpdateCategory({
+      ...selectedCategory,
+      products: [...selectedCategory.products, newProduct]
     })
   }
 
@@ -188,6 +388,89 @@ export function ConfigPage({ categories, onUpdateCategory }: ConfigPageProps) {
 
   return (
     <div className="config-page">
+      {/* Sección de Locales */}
+      <div className="stores-section">
+        <div className="section-header">
+          <div className="header-title">
+            <StoreIcon size={20} />
+            <h2>Locales</h2>
+          </div>
+          {role === 'admin' && (
+            <button className="add-store-btn" onClick={handleAddStore}>
+              <Plus size={16} /> Agregar Local
+            </button>
+          )}
+        </div>
+        <div className="stores-list">
+          {stores.map(store => (
+            <div 
+              key={store.id} 
+              className={`store-card ${selectedStoreId === store.id ? 'selected' : ''}`}
+              onClick={() => handleSelectStore(store.id)}
+            >
+              {editingStoreId === store.id ? (
+                <div className="store-edit-form" onClick={e => e.stopPropagation()}>
+                  <input 
+                    className="store-edit-input"
+                    type="text" 
+                    value={tempStoreName} 
+                    onChange={e => setTempStoreName(e.target.value)} 
+                    placeholder="Nombre del local"
+                    autoFocus
+                  />
+                  {role === 'admin' && (
+                    <input 
+                      className="store-edit-input"
+                      type="password" 
+                      value={tempStorePassword} 
+                      onChange={e => setTempStorePassword(e.target.value)} 
+                      placeholder="Nueva Clave"
+                    />
+                  )}
+                  <div className="edit-actions">
+                    <button className="save-store-btn" onClick={() => handleSaveStore(store.id)}>
+                      <Check size={16}/>
+                    </button>
+                    <button className="cancel-store-btn" onClick={() => setEditingStoreId(null)}>
+                      <X size={16}/>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <span className="store-name">{store.name}</span>
+                  {role === 'admin' && (
+                    <div className="store-actions">
+                      <button 
+                        className="store-icon-btn"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setEditingStoreId(store.id)
+                          setTempStoreName(store.name)
+                          setTempStorePassword('')
+                        }}
+                      >
+                        <Edit2 size={14}/>
+                      </button>
+                      <button 
+                        className="store-icon-btn delete"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeleteStore(store.id)
+                        }}
+                      >
+                        <Trash2 size={14}/>
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          ))}
+          {stores.length === 0 && <p className="no-stores-msg">No hay locales registrados.</p>}
+        </div>
+      </div>
+
       <div className="config-categories">
         <button 
           className="config-back-icon-btn" 
@@ -207,60 +490,134 @@ export function ConfigPage({ categories, onUpdateCategory }: ConfigPageProps) {
         </button>
 
         {categories.map(cat => (
-          <button
-            key={cat.id}
-            className={`config-category-btn ${selectedCategoryId === cat.id ? 'active' : ''}`}
-            onClick={() => setSelectedCategoryId(cat.id)}
-          >
-            {cat.label}
-          </button>
+          <div key={cat.id} className="category-pill-container">
+            <button
+              className={`config-category-btn ${selectedCategoryId === cat.id ? 'active' : ''}`}
+              onClick={() => setSelectedCategoryId(cat.id)}
+            >
+              {cat.label}
+            </button>
+            {role === 'master' && selectedCategoryId === cat.id && (
+              <div className="category-actions">
+                <button 
+                  className="cat-action-btn" 
+                  onClick={() => handleRenameCategory(cat.id)}
+                  title="Renombrar categoría"
+                >
+                  <Edit2 size={12}/>
+                </button>
+                <button 
+                  className="cat-action-btn delete" 
+                  onClick={() => handleDeleteCategory(cat.id)}
+                  title="Eliminar categoría"
+                >
+                  <Trash2 size={12}/>
+                </button>
+              </div>
+            )}
+          </div>
         ))}
+
+        {role === 'master' && selectedStoreId && (
+          <button 
+            className="add-category-pill-btn" 
+            onClick={handleAddCategory}
+            title="Agregar Categoría"
+          >
+            <Plus size={16} />
+          </button>
+        )}
       </div>
 
-      <div className="config-table-container">
-        <table className="config-table">
-          <thead>
-            <tr>
-              <th style={{ width: '50%' }}>Nombre</th>
-              <th style={{ width: '25%', textAlign: 'right' }}>Precio</th>
-              <th style={{ width: '25%', textAlign: 'center' }}>Unidad</th>
-            </tr>
-          </thead>
-          <tbody>
-            {selectedCategory?.products.map(product => (
-              <tr key={product.id}>
-                <td>
-                  <DebouncedInput
-                    className="config-input"
-                    type="text"
-                    value={product.name}
-                    onChangeValue={(val) => handleProductChange(product, 'name', val)}
-                  />
-                </td>
-                <td style={{ textAlign: 'right' }}>
-                  <DebouncedInput
-                    className="config-input"
-                    type="number"
-                    value={product.pricePerUnit}
-                    onChangeValue={(val) => handleProductChange(product, 'pricePerUnit', Number(val))}
-                    style={{ textAlign: 'right' }}
-                  />
-                </td>
-                 <td style={{ textAlign: 'center' }}>
-                  <select
-                    className="config-select"
-                    value={product.unitType}
-                    onChange={(e) => handleProductChange(product, 'unitType', e.target.value)}
-                  >
-                    <option value="weight">Kg</option>
-                    <option value="unit">Un</option>
-                  </select>
-                </td>
+      {!selectedStoreId ? (
+        <div className="no-store-selected-msg">
+          <StoreIcon size={48} />
+          <p>Seleccione un local para gestionar sus productos y precios.</p>
+        </div>
+      ) : (
+        <div className="config-table-container">
+          <table className="config-table">
+            <thead>
+              <tr>
+                <th style={{ width: '40px' }}></th>
+                <th style={{ width: '50%' }}>Nombre</th>
+                <th style={{ width: '25%', textAlign: 'right' }}>Precio</th>
+                <th style={{ width: '25%', textAlign: 'center' }}>Unidad</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {selectedCategory?.products.map((product, index) => (
+                <tr 
+                  key={product.id}
+                  draggable
+                  onDragStart={(e) => {
+                    // Solo permitir arrastrar si se hace desde el handle
+                    const target = e.target as HTMLElement;
+                    if (!target.closest('.drag-handle')) {
+                      e.preventDefault();
+                      return;
+                    }
+                    handleDragStart(index);
+                  }}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragEnd={handleDragEnd}
+                  className={`${draggedItemIndex === index ? 'dragging' : ''} ${swipedProductId === product.id ? 'swiped' : ''}`}
+                  onTouchStart={(e) => handleTouchStart(e, product.id)}
+                  onTouchMove={(e) => handleTouchMove(e, product.id)}
+                  onTouchEnd={handleTouchEnd}
+                >
+                  <td className="drag-handle-cell">
+                    <div className="drag-handle">
+                      <GripVertical size={20} />
+                    </div>
+                  </td>
+                  <td>
+                    <DebouncedInput
+                      className="config-input"
+                      type="text"
+                      value={product.name}
+                      onChangeValue={(val) => handleProductChange(product, 'name', val)}
+                    />
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <DebouncedInput
+                      className="config-input"
+                      type="number"
+                      value={product.pricePerUnit}
+                      onChangeValue={(val) => handleProductChange(product, 'pricePerUnit', Number(val))}
+                      style={{ textAlign: 'right' }}
+                    />
+                  </td>
+                   <td style={{ textAlign: 'center', position: 'relative' }}>
+                    <select
+                      className="config-select"
+                      value={product.unitType}
+                      onChange={(e) => handleProductChange(product, 'unitType', e.target.value)}
+                    >
+                      <option value="weight">Kg</option>
+                      <option value="unit">Un</option>
+                    </select>
+                    
+                    <button 
+                      className="mobile-delete-btn"
+                      onClick={() => handleDeleteProduct(product.id)}
+                      title="Eliminar producto"
+                    >
+                      <Trash2 size={20} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="add-product-container">
+            <button className="add-product-btn" onClick={handleAddProduct}>
+              <Plus size={18} />
+              Agregar Producto
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="data-management-section">
         <h3>Gestión de Datos</h3>

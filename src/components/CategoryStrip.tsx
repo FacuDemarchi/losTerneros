@@ -9,6 +9,7 @@ type CategoryStripProps = {
   onOpenTicket?: () => void
   onSelectNormal?: () => void
   totalQuantity?: number
+  isOffline?: boolean
 }
 
 export function CategoryStrip({
@@ -18,6 +19,7 @@ export function CategoryStrip({
   onOpenTicket,
   onSelectNormal,
   totalQuantity = 0,
+  isOffline = false,
 }: CategoryStripProps) {
   const navigate = useNavigate()
   const tapCountRef = useRef(0)
@@ -46,6 +48,11 @@ export function CategoryStrip({
 
   return (
     <div className="pos-category-strip">
+      {isOffline && (
+        <div className="offline-badge">
+          ⚠️ MODO OFFLINE (Precios no verificados)
+        </div>
+      )}
       <div className="pos-category-buttons">
         {categories.map((category) => (
           <button

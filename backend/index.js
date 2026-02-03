@@ -52,8 +52,10 @@ const pool = new Pool({
 
 // Inicializar DB
 async function initDb() {
+  const start = Date.now();
   try {
     const client = await pool.connect();
+    console.log('📡 Database connection established in', Date.now() - start, 'ms');
     
     // Tabla para configuración (Categorías y Productos guardados como JSON)
     await client.query(`
@@ -63,16 +65,23 @@ async function initDb() {
       );
     `);
 
-    // Tabla para Ventas
+    // Tabla para Locales (Stores)
     await client.query(`
-      CREATE TABLE IF NOT EXISTS sales (
+      CREATE TABLE IF NOT EXISTS stores (
         id TEXT PRIMARY KEY,
-        timestamp BIGINT,
-        total REAL,
-        type TEXT,
-        items TEXT
+        name TEXT NOT NULL,
+        password TEXT
       );
     `);
+
+    // Crear local default si no hay ninguno
+    const storesCount = await client.query("SELECT COUNT(*) FROM stores");
+    if (parseInt(storesCount.rows[0].count) === 0) {
+      console.log('📝 Creando local por defecto: Alemanes');
+      await client.query(`
+        INSERT INTO stores (id, name, password) VALUES ($1, $2, $3)
+      `, ['alemanes', 'Alemanes', '']);
+    }
     
     console.log('✅ Connected to Neon PostgreSQL database and tables verified.');
     client.release();
@@ -84,6 +93,11 @@ async function initDb() {
 initDb();
 
 // Routes
+
+// Health Check / Keep-Alive (Lightweight)
+app.get('/api/ping', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 // POST Login (Auth)
 app.post('/api/login', (req, res) => {
@@ -104,14 +118,64 @@ app.post('/api/login', (req, res) => {
     }
 });
 
+// GET Stores
+app.get('/api/stores', async (req, res) => {
+  console.log('GET /api/stores - Iniciando consulta');
+  try {
+    const result = await pool.query("SELECT * FROM stores ORDER BY name ASC");
+    console.log(`GET /api/stores - Éxito: ${result.rows.length} locales encontrados`);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('GET /api/stores - ERROR:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST Store (Save/Update)
+app.post('/api/stores', async (req, res) => {
+  const { id, name, password } = req.body;
+  if (!id || !name) return res.status(400).json({ error: 'ID and Name are required' });
+  try {
+    await pool.query(`
+      INSERT INTO stores (id, name, password) VALUES ($1, $2, $3)
+      ON CONFLICT(id) DO UPDATE SET name = excluded.name, password = excluded.password
+    `, [id, name, password]);
+    res.json({ message: 'Store saved successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE Store
+app.delete('/api/stores/:id', async (req, res) => {
+  try {
+    await pool.query("DELETE FROM stores WHERE id = $1", [req.params.id]);
+    res.json({ message: 'Store deleted successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET Configuration (Categories & Products)
 app.get('/api/config', async (req, res) => {
+  const { storeId } = req.query;
+  const configKey = storeId ? `categories_${storeId}` : 'categories';
+  
   try {
-    const result = await pool.query("SELECT value FROM app_config WHERE key = $1", ['categories']);
+    const result = await pool.query("SELECT value FROM app_config WHERE key = $1", [configKey]);
     const row = result.rows[0];
 
-    // Si no hay configuración guardada, devolver null o array vacío
-    const categories = row ? JSON.parse(row.value) : null;
+    // Si no hay configuración guardada para el local, intentar devolver la global
+    let categories = row ? JSON.parse(row.value) : null;
+    
+    if (!categories && storeId) {
+      const globalRes = await pool.query("SELECT value FROM app_config WHERE key = $1", ['categories']);
+      if (globalRes.rows[0]) {
+        categories = JSON.parse(globalRes.rows[0].value);
+      }
+    }
     
     // Si existe una URL pública inyectada (ngrok), la enviamos preferentemente
     const serverUrl = PUBLIC_URL || `http://${LOCAL_IP}:${PORT}`;
@@ -130,22 +194,23 @@ app.get('/api/config', async (req, res) => {
 
 // POST Configuration (Save Categories & Products)
 app.post('/api/config', async (req, res) => {
-  const { categories } = req.body;
+  const { categories, storeId } = req.body;
   if (!categories) {
     res.status(400).json({ error: 'Categories data required' });
     return;
   }
 
+  const configKey = storeId ? `categories_${storeId}` : 'categories';
   const jsonVal = JSON.stringify(categories);
   
   try {
     await pool.query(`
       INSERT INTO app_config (key, value) VALUES ($1, $2)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value
-    `, ['categories', jsonVal]);
+    `, [configKey, jsonVal]);
 
     // Notificar a todos los clientes conectados que hubo cambios
-    io.emit('config_updated', categories);
+    io.emit('config_updated', { categories, storeId });
     
     res.json({ message: 'Configuration saved successfully' });
   } catch (err) {
@@ -154,87 +219,31 @@ app.post('/api/config', async (req, res) => {
   }
 });
 
-// GET Sales
+// GET Sales (Deshabilitado - Solo visor en tiempo real)
 app.get('/api/sales', async (req, res) => {
-  try {
-    const result = await pool.query("SELECT * FROM sales ORDER BY timestamp DESC LIMIT 1000");
-    const rows = result.rows;
-    
-    // Parse items JSON for each row
-    const sales = rows.map(row => ({
-      ...row,
-      items: JSON.parse(row.items),
-      timestamp: Number(row.timestamp) // Asegurar que sea número (BigInt puede venir como string)
-    }));
-    res.json(sales);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
-  }
+  res.json([]);
 });
 
-// POST Sale (New Ticket)
+// POST Sale (New Ticket - Solo emite al visor, no guarda en DB)
 app.post('/api/sales', async (req, res) => {
   const sale = req.body;
-  // sale object expected: { id, timestamp, total, type, items: [] }
-  
   if (!sale || !sale.id || !sale.items) {
-    res.status(400).json({ error: 'Invalid sale data' });
-    return;
+    return res.status(400).json({ error: 'Invalid sale data' });
   }
-
-  const itemsJson = JSON.stringify(sale.items);
-  
-  try {
-    await pool.query(
-      `INSERT INTO sales (id, timestamp, total, type, items) VALUES ($1, $2, $3, $4, $5)`,
-      [sale.id, sale.timestamp, sale.total, sale.type, itemsJson]
-    );
-    res.json({ message: 'Sale saved successfully', id: sale.id });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
-  }
+  // Notificar al visor si es necesario
+  io.emit('new_data', [sale]);
+  res.json({ message: 'Sale processed (not saved to DB)', id: sale.id });
 });
 
-// POST Sync (Batch Sales)
+// POST Sync (Batch Sales - Solo emite al visor)
 app.post('/api/sync', async (req, res) => {
-  if (CLOUD_MODE) return res.json({ message: 'Cloud mode: Sync disabled', added: 0, total: 0 }); // Ignoramos sync en nube
-  const { tickets } = req.body; // Expecting { tickets: [...] }
-  
+  const { tickets } = req.body;
   if (!tickets || !Array.isArray(tickets)) {
-    res.status(400).json({ error: 'Invalid tickets data' });
-    return;
+    return res.status(400).json({ error: 'Invalid tickets data' });
   }
-
-  // MODO DEMO: Simular sincronización exitosa sin guardar en DB (Para evitar complejidad en este paso rápido)
-  // En producción, aquí haríamos un INSERT masivo.
-  console.log(`📥 Recibidos ${tickets.length} tickets para sincronizar. Emitiendo al visor...`);
-  
-  // Emitir al visor para que se vea la animación
+  console.log(`📥 Recibidos ${tickets.length} tickets para el visor.`);
   io.emit('new_data', tickets);
-  
-  // Guardado Real en PostgreSQL (Iterativo simple)
-  let addedCount = 0;
-  for (const sale of tickets) {
-      if (!sale.id || !sale.items) continue;
-      try {
-          const itemsJson = JSON.stringify(sale.items);
-          await pool.query(
-              `INSERT INTO sales (id, timestamp, total, type, items) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING`,
-              [sale.id, sale.timestamp, sale.total, sale.type, itemsJson]
-          );
-          addedCount++;
-      } catch (e) {
-          console.error(`Error syncing ticket ${sale.id}`, e);
-      }
-  }
-
-  res.json({ 
-    message: 'Sync completed', 
-    added: addedCount, 
-    total: tickets.length
-  });
+  res.json({ message: 'Sync processed (not saved to DB)', added: 0, total: tickets.length });
 });
 
 // Serve Viewer
