@@ -7,7 +7,6 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "server": "nodemon index.js",
-    "visor": "node visor-launcher.js",
     "set-auth": "node set-auth.js"
   },
   "keywords": [],
@@ -20,7 +19,6 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^4.18.2",
-    "localtunnel": "^2.0.2",
     "pg": "^8.17.2",
     "socket.io": "^4.8.3"
   },

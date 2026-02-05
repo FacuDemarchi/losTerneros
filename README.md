@@ -19,23 +19,6 @@ pnpm run dev
 
 ---
 
-## 📱 Sincronización Móvil (Modo Visor)
-
-Si usas el sistema en celulares, puedes enviar las ventas a la PC principal al final del día.
-
-1.  **En la PC**: Ejecuta el modo visor para esperar datos.
-    ```bash
-    pnpm run visor
-    ```
-    *Se abrirá una pantalla con un código QR.*
-
-2.  **En el Celular**:
-    *   Ve al **Historial**.
-    *   Toca el botón **QR**.
-    *   Escanea la pantalla de la PC.
-
----
-
 ## 🛠️ Administración y Seguridad
 
 ### Cambiar Contraseñas

@@ -39,9 +39,6 @@ function getLocalIp() {
 
 const LOCAL_IP = getLocalIp();
 
-// Variable global para URL pública (puede ser inyectada desde fuera)
-let PUBLIC_URL = process.env.PUBLIC_URL || null;
-
 // Database setup (PostgreSQL / Neon)
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -174,14 +171,10 @@ app.get('/api/config', async (req, res) => {
       categories = []; // No heredar de la configuración global
     }
     
-    // Si existe una URL pública inyectada (ngrok), la enviamos preferentemente
-    const serverUrl = PUBLIC_URL || `http://${LOCAL_IP}:${PORT}`;
-    
     res.json({ 
         categories, 
         serverIp: LOCAL_IP, 
-        port: PORT,
-        publicUrl: serverUrl 
+        port: PORT
     });
   } catch (err) {
     console.error(err);
@@ -216,42 +209,6 @@ app.post('/api/config', async (req, res) => {
   }
 });
 
-// GET Sales (Deshabilitado - Solo visor en tiempo real)
-app.get('/api/sales', async (req, res) => {
-  res.json([]);
-});
-
-// POST Sale (New Ticket - Solo emite al visor, no guarda en DB)
-app.post('/api/sales', async (req, res) => {
-  const sale = req.body;
-  if (!sale || !sale.id || !sale.items) {
-    return res.status(400).json({ error: 'Invalid sale data' });
-  }
-  // Notificar al visor si es necesario
-  io.emit('new_data', [sale]);
-  res.json({ message: 'Sale processed (not saved to DB)', id: sale.id });
-});
-
-// POST Sync (Batch Sales - Solo emite al visor)
-app.post('/api/sync', async (req, res) => {
-  const { tickets } = req.body;
-  if (!tickets || !Array.isArray(tickets)) {
-    return res.status(400).json({ error: 'Invalid tickets data' });
-  }
-  console.log(`📥 Recibidos ${tickets.length} tickets para el visor.`);
-  io.emit('new_data', tickets);
-  res.json({ message: 'Sync processed (not saved to DB)', added: 0, total: tickets.length });
-});
-
-// Serve Viewer
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'viewer.html'));
-});
-
-app.get('/viewer', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'viewer.html'));
-});
-
 // Socket.io Connection
 io.on('connection', (socket) => {
     console.log('🔌 Cliente conectado:', socket.id);
@@ -259,9 +216,6 @@ io.on('connection', (socket) => {
 
 // Start server
 server.listen(PORT, () => {
-  const displayUrl = PUBLIC_URL || `http://${LOCAL_IP}:${PORT}`;
   console.log(`\n🚀 SERVIDOR POS (Neon/Postgres) LISTO`);
   console.log(`📡 API & Socket: http://localhost:${PORT}`);
-  console.log(`📺 Visor Web:    http://localhost:${PORT}/`);
-  console.log(`📱 QR Apunta a:  ${displayUrl}/api/sync\n`);
 });

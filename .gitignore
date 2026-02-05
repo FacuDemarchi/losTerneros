@@ -26,3 +26,6 @@ dist-ssr
 .trae/
 .env
 backend/.env
+
+# Handover
+visor-handover/
