@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import type { Category, Product, Store } from '../types'
 import { useNavigate } from 'react-router-dom'
 import { CornerUpLeft, LogOut, Plus, GripVertical, Trash2, Store as StoreIcon, Edit2, Check, X, Eye, EyeOff } from 'lucide-react'
@@ -11,8 +11,6 @@ interface ConfigPageProps {
   onUpdateCategory: (category: Category) => void
   onUpdateCategories: (categories: Category[]) => void
 }
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 
 export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }: ConfigPageProps) {
   const navigate = useNavigate()
@@ -200,7 +198,7 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
     setDraggedItemIndex(null)
   }
 
-  function handleTouchStart(e: React.TouchEvent, productId: string) {
+  function handleTouchStart(e: React.TouchEvent) {
     setTouchStart(e.touches[0].clientX)
   }
 
@@ -488,9 +486,10 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
             <thead>
               <tr>
                 <th style={{ width: '40px' }}></th>
-                <th style={{ width: '40%' }}>Nombre</th>
-                <th style={{ width: '20%', textAlign: 'right' }}>Precio</th>
-                <th style={{ width: '20%', textAlign: 'center' }}>Unidad</th>
+                <th style={{ width: '35%' }}>Nombre</th>
+                <th style={{ width: '15%' }}>Ext. ID</th>
+                <th style={{ width: '15%', textAlign: 'right' }}>Precio</th>
+                <th style={{ width: '15%', textAlign: 'center' }}>Unidad</th>
                 <th style={{ width: '20%', textAlign: 'center' }}>{role === 'master' ? 'Acciones' : 'Estado'}</th>
               </tr>
             </thead>
@@ -511,7 +510,7 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
                   onDragOver={(e) => handleDragOver(e, index)}
                   onDragEnd={handleDragEnd}
                   className={`${draggedItemIndex === index ? 'dragging' : ''} ${swipedProductId === product.id ? 'swiped' : ''} ${product.disabled ? 'product-disabled' : ''}`}
-                  onTouchStart={(e) => handleTouchStart(e, product.id)}
+                  onTouchStart={handleTouchStart}
                   onTouchMove={(e) => handleTouchMove(e, product.id)}
                   onTouchEnd={handleTouchEnd}
                 >
@@ -527,6 +526,16 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
                       value={product.name}
                       onChangeValue={(val) => handleProductChange(product, 'name', val)}
                       readOnly={role !== 'master'}
+                    />
+                  </td>
+                  <td>
+                    <DebouncedInput
+                      className="config-input"
+                      type="text"
+                      value={product.externalId || ''}
+                      onChangeValue={(val) => handleProductChange(product, 'externalId', val)}
+                      readOnly={role !== 'master'}
+                      placeholder="-"
                     />
                   </td>
                   <td style={{ textAlign: 'right' }}>

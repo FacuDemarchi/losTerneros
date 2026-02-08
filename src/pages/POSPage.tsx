@@ -6,7 +6,7 @@ import { ProductsGrid } from '../components/ProductsGrid'
 import { TicketPanel } from '../components/TicketPanel'
 import { HistoryModal } from '../components/HistoryModal'
 import { WeightInputModal } from '../components/WeightInputModal'
-import type { TicketItem, Product, ClosedTicket, Category } from '../types'
+import type { TicketItem, Product, ClosedTicket, Category, Client } from '../types'
 import { api } from '../services/api'
 import '../App.css'
 
@@ -27,12 +27,17 @@ export function POSPage({ categories, isOffline }: POSPageProps) {
   const [selectedCategoryId, setSelectedCategoryId] = useState(visibleCategories[0]?.id)
   const [ticketItems, setTicketItems] = useLocalStorage<TicketItem[]>('pos-current-ticket', [])
   const [closedTickets, setClosedTickets] = useLocalStorage<ClosedTicket[]>('pos-closed-tickets', [])
+  const [clients, setClients] = useState<Client[]>([])
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [weighingProduct, setWeighingProduct] = useState<Product | null>(null)
 
   // El historial de ventas se mantiene puramente local en el dispositivo
   useEffect(() => {
     // Ya no cargamos ventas del backend para mantener la privacidad local
+    // Cargar clientes del backend al iniciar
+    api.searchClients().then(data => {
+        setClients(data || [])
+    })
   }, [])
 
   const selectedCategory = useMemo(
@@ -100,6 +105,7 @@ export function POSPage({ categories, isOffline }: POSPageProps) {
       } else {
         const nextItem: TicketItem = {
           productId: product.id,
+          externalId: product.externalId,
           name: product.name,
           quantity: 1,
           pricePerUnit: product.pricePerUnit,
@@ -128,6 +134,7 @@ export function POSPage({ categories, isOffline }: POSPageProps) {
         } else {
             const nextItem: TicketItem = {
                 productId: weighingProduct.id,
+                externalId: weighingProduct.externalId,
                 name: weighingProduct.name,
                 quantity: weight,
                 pricePerUnit: weighingProduct.pricePerUnit,
@@ -170,7 +177,7 @@ export function POSPage({ categories, isOffline }: POSPageProps) {
     })
   }
 
-  function handleCloseTicket(type: 'normal' | 'B' | 'A' = 'normal') {
+  function handleCloseTicket(type: 'normal' | 'B' | 'A' = 'normal', client?: Client) {
     if (ticketItems.length === 0) return
 
     const newTicket: ClosedTicket = {
@@ -179,6 +186,7 @@ export function POSPage({ categories, isOffline }: POSPageProps) {
       items: ticketItems,
       total: grandTotal,
       type,
+      client
     }
 
     setClosedTickets((prev) => [newTicket, ...prev])
@@ -266,6 +274,7 @@ export function POSPage({ categories, isOffline }: POSPageProps) {
           onCloseTicket={handleCloseTicket}
           onSelectNormal={handleSelectNormal}
           onClearTicket={handleClearTicket}
+          clients={clients}
         />
       </div>
 

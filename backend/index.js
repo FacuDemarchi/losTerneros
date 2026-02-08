@@ -71,6 +71,16 @@ async function initDb() {
       );
     `);
 
+    // Tabla para Clientes
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS clients (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        cuit TEXT UNIQUE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
     // Crear local default si no hay ninguno
     const storesCount = await client.query("SELECT COUNT(*) FROM stores");
     if (parseInt(storesCount.rows[0].count) === 0) {
@@ -205,6 +215,50 @@ app.post('/api/config', async (req, res) => {
     res.json({ message: 'Configuration saved successfully' });
   } catch (err) {
     console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET Clients (Search by name or cuit)
+app.get('/api/clients', async (req, res) => {
+  const { q } = req.query;
+  try {
+    let queryText = "SELECT * FROM clients ORDER BY name ASC";
+    let queryParams = [];
+
+    if (q) {
+      queryText = "SELECT * FROM clients WHERE name ILIKE $1 OR cuit ILIKE $1 ORDER BY name ASC LIMIT 50";
+      queryParams = [`%${q}%`];
+    }
+
+    const result = await pool.query(queryText, queryParams);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('GET /api/clients - ERROR:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST Client (Create or Update)
+app.post('/api/clients', async (req, res) => {
+  const { name, cuit } = req.body;
+  
+  if (!name || !cuit) {
+    return res.status(400).json({ error: 'Name and CUIT are required' });
+  }
+
+  try {
+    // Upsert: Insertar o actualizar si el CUIT ya existe
+    const result = await pool.query(`
+      INSERT INTO clients (name, cuit) 
+      VALUES ($1, $2)
+      ON CONFLICT(cuit) DO UPDATE SET name = excluded.name
+      RETURNING *
+    `, [name, cuit]);
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('POST /api/clients - ERROR:', err);
     res.status(500).json({ error: err.message });
   }
 });

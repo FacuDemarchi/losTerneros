@@ -142,10 +142,13 @@ function App() {
       )
   }
 
+  // Due to early returns above, status is always 'ready' here.
+  const effectiveIsOffline = !navigator.onLine;
+
   return (
     <>
       <Routes>
-        <Route path="/" element={<POSPage categories={categories} isOffline={status === 'offline' || (status === 'ready' && !navigator.onLine)} />} />
+        <Route path="/" element={<POSPage categories={categories} isOffline={effectiveIsOffline} />} />
         <Route 
           path="/config" 
           element={

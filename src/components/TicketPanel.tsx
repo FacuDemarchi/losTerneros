@@ -1,5 +1,6 @@
-import type { TicketItem } from '../types'
-
+import type { TicketItem, Client } from '../types'
+import { useState } from 'react'
+import { ClientSelectionModal } from './ClientSelectionModal'
 import { Trash2 } from 'lucide-react'
 
 type TicketPanelProps = {
@@ -10,9 +11,10 @@ type TicketPanelProps = {
   onRemoveItem: (productId: string) => void
   onOpenHistory: () => void
   onClose?: () => void
-  onCloseTicket?: (type?: 'normal' | 'B' | 'A') => void
+  onCloseTicket?: (type?: 'normal' | 'B' | 'A', client?: Client) => void
   onSelectNormal?: () => void
   onClearTicket?: () => void
+  clients?: Client[]
 }
 
 
@@ -52,9 +54,29 @@ export function TicketPanel({
   onCloseTicket,
   // onSelectNormal,
   onClearTicket,
+  clients = []
 }: TicketPanelProps) {
+  const [isClientModalOpen, setIsClientModalOpen] = useState(false)
+
+  function handleTicketA() {
+      setIsClientModalOpen(true)
+  }
+
+  function handleClientSelect(client: Client) {
+      setIsClientModalOpen(false)
+      if (onCloseTicket) {
+          onCloseTicket('A', client)
+      }
+  }
+
   return (
     <div className="pos-side">
+      <ClientSelectionModal 
+        isOpen={isClientModalOpen} 
+        onClose={() => setIsClientModalOpen(false)} 
+        onSelect={handleClientSelect}
+        clients={clients} 
+      />
       <div className="pos-total-panel">
         <div className="pos-total-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>Monto</span>
@@ -141,7 +163,7 @@ export function TicketPanel({
             <button className="mobile-action-btn btn-ticket-b" onClick={() => onCloseTicket && onCloseTicket('B')}>
                 Tiquet B
             </button>
-            <button className="mobile-action-btn btn-ticket-a" onClick={() => onCloseTicket && onCloseTicket('A')}>
+            <button className="mobile-action-btn btn-ticket-a" onClick={handleTicketA}>
                 Tiquet A
             </button>
         </div>

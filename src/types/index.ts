@@ -8,6 +8,7 @@ export type UnitType = 'weight' | 'unit'
 
 export type Product = {
   id: string
+  externalId?: string
   name: string
   pricePerUnit: number
   unitType: UnitType
@@ -23,6 +24,7 @@ export type Category = {
 
 export type TicketItem = {
   productId: string
+  externalId?: string
   name: string
   quantity: number
   pricePerUnit: number
@@ -35,4 +37,11 @@ export type ClosedTicket = {
   items: TicketItem[]
   total: number
   type: 'normal' | 'B' | 'A'
+  client?: Client
+}
+
+export type Client = {
+  id?: string
+  name: string
+  cuit: string
 }
