@@ -10,6 +10,4 @@ backend/
 backend/.env
 backend/passwords.txt
 visor-handover/
-
-# Scripts locales
 sync-prices.js
