@@ -1,12 +1,22 @@
 import type { Category, ClosedTicket, Store, Client } from '../types'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+console.log('API_URL en uso:', API_URL); // Debugging
+
 
 // Headers base para todas las peticiones
 // 'bypass-tunnel-reminder' es necesario para que Localtunnel no bloquee la petición con su página de aviso
 const BASE_HEADERS = {
     'Content-Type': 'application/json',
     'bypass-tunnel-reminder': 'true',
+}
+
+function getAuthHeaders() {
+    const token = localStorage.getItem('pos-token');
+    return {
+        ...BASE_HEADERS,
+        ...(token ? { 'Authorization': token } : {})
+    };
 }
 
 // Función helper para reportar errores a la UI
@@ -21,12 +31,12 @@ function reportError(context: string, error: any) {
 
 export const api = {
   // Auth
-  async login(password: string): Promise<{ success: boolean; role?: 'admin' | 'master'; error?: string }> {
+  async login(password: string, username?: string): Promise<{ success: boolean; role?: 'admin' | 'master' | 'cashier'; error?: string; token?: string; userId?: string; username?: string; permissions?: any }> {
     try {
       const response = await fetch(`${API_URL}/login`, {
         method: 'POST',
         headers: BASE_HEADERS,
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ password, username }),
       });
       const data = await response.json();
       if (!response.ok) return { success: false, error: data.error || 'Login failed' };
@@ -37,11 +47,56 @@ export const api = {
     }
   },
 
+  // Users
+  async getUsers(): Promise<any[]> {
+    try {
+      const response = await fetch(`${API_URL}/users`, { headers: getAuthHeaders() });
+      const text = await response.text();
+      if (!response.ok) throw new Error('Failed to fetch users');
+      return JSON.parse(text);
+    } catch (error) {
+      reportError('Error fetching users', error);
+      return [];
+    }
+  },
+
+  async saveUser(user: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const method = user.id ? 'PUT' : 'POST';
+      const url = user.id ? `${API_URL}/users/${user.id}` : `${API_URL}/users`;
+      
+      const response = await fetch(url, {
+        method,
+        headers: getAuthHeaders(),
+        body: JSON.stringify(user),
+      });
+      const data = await response.json();
+      if (!response.ok) return { success: false, error: data.error };
+      return { success: true };
+    } catch (error) {
+      reportError('Error saving user', error);
+      return { success: false, error: 'Connection error' };
+    }
+  },
+
+  async deleteUser(id: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${API_URL}/users/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      return response.ok;
+    } catch (error) {
+      reportError('Error deleting user', error);
+      return false;
+    }
+  },
+
   // Stores
   async getStores(): Promise<Store[]> {
     try {
       console.log('Fetching stores from:', `${API_URL}/stores`);
-      const response = await fetch(`${API_URL}/stores`, { headers: BASE_HEADERS });
+      const response = await fetch(`${API_URL}/stores`, { headers: getAuthHeaders() });
       
       const text = await response.text();
       if (!response.ok) {
@@ -59,7 +114,7 @@ export const api = {
     try {
       const response = await fetch(`${API_URL}/stores`, {
         method: 'POST',
-        headers: BASE_HEADERS,
+        headers: getAuthHeaders(),
         body: JSON.stringify(store),
       });
       return response.ok;
@@ -73,7 +128,7 @@ export const api = {
     try {
       const response = await fetch(`${API_URL}/stores/${id}`, {
         method: 'DELETE',
-        headers: BASE_HEADERS,
+        headers: getAuthHeaders(),
       });
       return response.ok;
     } catch (error) {
@@ -83,11 +138,18 @@ export const api = {
   },
 
   // Configuration
-  async getConfig(storeId?: string): Promise<{ categories: Category[] } | null> {
+  async getConfig(storeId?: string, userId?: string): Promise<{ categories: Category[] } | null> {
     try {
-      const url = storeId ? `${API_URL}/config?storeId=${storeId}` : `${API_URL}/config`;
+      let url = `${API_URL}/config`;
+      const params = new URLSearchParams();
+      if (storeId) params.append('storeId', storeId);
+      if (userId) params.append('userId', userId);
+      
+      const queryString = params.toString();
+      if (queryString) url += `?${queryString}`;
+
       const response = await fetch(url, {
-          headers: BASE_HEADERS
+          headers: getAuthHeaders()
       })
       
       // Intentar leer el texto primero por si falla el JSON (ej: HTML de error)
@@ -106,12 +168,12 @@ export const api = {
     }
   },
 
-  async saveConfig(categories: Category[], storeId?: string): Promise<boolean> {
+  async saveConfig(categories: Category[], storeId?: string, userId?: string): Promise<boolean> {
     try {
       const response = await fetch(`${API_URL}/config`, {
         method: 'POST',
-        headers: BASE_HEADERS,
-        body: JSON.stringify({ categories, storeId }),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ categories, storeId, userId }),
       })
       return response.ok
     } catch (error) {

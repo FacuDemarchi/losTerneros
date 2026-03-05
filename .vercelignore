@@ -8,4 +8,5 @@ dist
 backend/
 .env
 backend/.env
+backend/passwords.txt
 visor-handover/

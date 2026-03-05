@@ -2,6 +2,7 @@ import type { TicketItem, Client } from '../types'
 import { useState } from 'react'
 import { ClientSelectionModal } from './ClientSelectionModal'
 import { Trash2 } from 'lucide-react'
+import { formatMoney } from '../utils/format'
 
 type TicketPanelProps = {
   items: TicketItem[]
@@ -17,13 +18,6 @@ type TicketPanelProps = {
   clients?: Client[]
 }
 
-
-function formatMoney(value: number) {
-  return value.toLocaleString('es-AR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
-}
 
 function formatQuantity(item: TicketItem) {
   if (item.unitType === 'unit') {

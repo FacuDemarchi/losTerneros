@@ -18,7 +18,7 @@ const LOCAL_IP = getLocalIp();
 const PORT = process.env.PORT || 3001;
 
 const getConfig = async (req, res) => {
-  const { storeId } = req.query;
+  const { storeId, userId } = req.query;
   const configKey = storeId ? `categories_${storeId}` : 'categories';
   
   try {
@@ -30,6 +30,17 @@ const getConfig = async (req, res) => {
     
     if (!categories && storeId) {
       categories = []; // No heredar de la configuración global
+    }
+
+    // Filtrar si es un usuario específico (cajero)
+    if (userId && categories) {
+        const userRes = await pool.query("SELECT permissions, role FROM app_users WHERE id = $1", [userId]);
+        const user = userRes.rows[0];
+        if (user && user.role === 'cashier') {
+            const perms = user.permissions ? JSON.parse(user.permissions) : {};
+            const allowedIds = perms.allowedCategories || [];
+            categories = categories.filter(c => allowedIds.includes(c.id));
+        }
     }
     
     res.json({ 
@@ -44,12 +55,79 @@ const getConfig = async (req, res) => {
 };
 
 const saveConfig = async (req, res) => {
-  const { categories, storeId } = req.body;
+  const { categories, storeId, userId } = req.body;
   if (!categories) {
     res.status(400).json({ error: 'Categories data required' });
     return;
   }
 
+  // Validación de permisos para cajeros
+  if (userId) {
+      try {
+          const userRes = await pool.query("SELECT permissions, role FROM app_users WHERE id = $1", [userId]);
+          const user = userRes.rows[0];
+          
+          if (user && user.role === 'cashier') {
+              const perms = user.permissions ? JSON.parse(user.permissions) : {};
+              const allowedIds = perms.allowedCategories || [];
+              
+              // Verificar que todas las categorías enviadas estén permitidas
+              // Ojo: Si el cajero envía solo las que ve, está bien.
+              // Pero debemos asegurarnos de no borrar las otras categorías de la base de datos global.
+              // Problema: saveConfig sobrescribe TODO el JSON de categorías.
+              // Solución: Si es cajero, primero leer la config actual, mezclar los cambios y guardar.
+              
+              const configKey = storeId ? `categories_${storeId}` : 'categories';
+              const currentResult = await pool.query("SELECT value FROM app_config WHERE key = $1", [configKey]);
+              let currentCategories = currentResult.rows[0] ? JSON.parse(currentResult.rows[0].value) : [];
+
+              // Actualizar solo los precios de los productos en categorías permitidas
+              const newCategoriesMap = new Map(categories.map(c => [c.id, c]));
+              
+              const updatedCategories = currentCategories.map(cat => {
+                  if (allowedIds.includes(cat.id) && newCategoriesMap.has(cat.id)) {
+                      const newCat = newCategoriesMap.get(cat.id);
+                      // Solo permitir cambio de precios (y tal vez disabled status si se requiere)
+                      // El usuario dijo "configurar los precios", asumimos solo precios.
+                      // Mantener estructura original, solo actualizar precios de productos coincidentes
+                      return {
+                          ...cat,
+                          products: cat.products.map(prod => {
+                              const newProd = newCat.products.find(p => p.id === prod.id);
+                              if (newProd) {
+                                  return { ...prod, pricePerUnit: newProd.pricePerUnit };
+                              }
+                              return prod;
+                          })
+                      };
+                  }
+                  return cat; // Categoría no permitida o no enviada, se mantiene igual
+              });
+              
+              // Usar updatedCategories para guardar
+              // Reemplazar la variable categories del scope superior para que el emit use la versión completa
+              // (aunque el emit podría enviar solo lo cambiado, pero el frontend espera array completo usualmente)
+              // Pero saveConfig usa la variable 'categories' del body original para guardar.
+              // Debo sobrescribir la lógica de guardado.
+              
+              const jsonVal = JSON.stringify(updatedCategories);
+              await pool.query(`
+                INSERT INTO app_config (key, value) VALUES ($1, $2)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value
+              `, [configKey, jsonVal]);
+              
+              const io = req.app.get('io');
+              if (io) io.emit('config_updated', { categories: updatedCategories, storeId });
+              
+              return res.json({ message: 'Configuration updated successfully (Partial)' });
+          }
+      } catch (err) {
+          console.error('Error validando permisos de cajero:', err);
+          return res.status(500).json({ error: 'Error validating permissions' });
+      }
+  }
+
+  // Lógica normal para Admin/Master (sobrescribe todo)
   const configKey = storeId ? `categories_${storeId}` : 'categories';
   const jsonVal = JSON.stringify(categories);
   
@@ -59,10 +137,8 @@ const saveConfig = async (req, res) => {
       ON CONFLICT(key) DO UPDATE SET value = excluded.value
     `, [configKey, jsonVal]);
 
-    // Obtener io desde app (inyectado en index.js)
     const io = req.app.get('io');
     if (io) {
-        // Notificar a todos los clientes conectados que hubo cambios
         io.emit('config_updated', { categories, storeId });
     }
     

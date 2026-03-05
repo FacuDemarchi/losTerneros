@@ -42,6 +42,18 @@ async function initDb() {
       );
     `);
 
+    // Tabla para Usuarios (Cajeros)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS app_users (
+        id TEXT PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        role TEXT DEFAULT 'cashier',
+        permissions TEXT,
+        current_token TEXT
+      );
+    `);
+
     // Crear local default si no hay ninguno
     const storesCount = await client.query("SELECT COUNT(*) FROM stores");
     if (parseInt(storesCount.rows[0].count) === 0) {

@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import type { ClosedTicket } from '../types'
-import { QrCode, X } from 'lucide-react'
+import { QrCode, X, ChevronDown, ChevronRight } from 'lucide-react'
 import { Scanner } from '@yudiel/react-qr-scanner'
 import { api } from '../services/api'
+import { formatMoney, formatDate, formatTime } from '../utils/format'
 
 type HistoryModalProps = {
   isOpen: boolean
@@ -10,25 +11,21 @@ type HistoryModalProps = {
   tickets: ClosedTicket[]
 }
 
-function formatMoney(value: number) {
-  return value.toLocaleString('es-AR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
-}
-
-function formatDate(timestamp: number) {
-  return new Date(timestamp).toLocaleString('es-AR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })
-}
-
 export function HistoryModal({ isOpen, onClose, tickets }: HistoryModalProps) {
   const [filterMode, setFilterMode] = useState<'all' | 'A' | 'B'>('all')
   const [isScanning, setIsScanning] = useState(false)
   const [syncMessage, setSyncMessage] = useState('')
+  const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({})
+
+  useEffect(() => {
+    if (isOpen) {
+      const today = formatDate(Date.now())
+      setExpandedDates(prev => ({
+        ...prev,
+        [today]: true
+      }))
+    }
+  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -37,7 +34,34 @@ export function HistoryModal({ isOpen, onClose, tickets }: HistoryModalProps) {
     return t.type === filterMode
   })
 
+  const ticketsByDate = useMemo(() => {
+    const groups: Record<string, ClosedTicket[]> = {}
+    displayedTickets.forEach(ticket => {
+      const date = formatDate(ticket.timestamp)
+      if (!groups[date]) {
+        groups[date] = []
+      }
+      groups[date].push(ticket)
+    })
+    return groups
+  }, [displayedTickets])
+
+  const sortedDates = useMemo(() => {
+    return Object.keys(ticketsByDate).sort((a, b) => {
+      const [dayA, monthA, yearA] = a.split('/').map(Number)
+      const [dayB, monthB, yearB] = b.split('/').map(Number)
+      return new Date(yearB, monthB - 1, dayB).getTime() - new Date(yearA, monthA - 1, dayA).getTime()
+    })
+  }, [ticketsByDate])
+
   const totalDay = displayedTickets.reduce((sum, t) => sum + t.total, 0)
+
+  const toggleDate = (date: string) => {
+    setExpandedDates(prev => ({
+      ...prev,
+      [date]: !prev[date]
+    }))
+  }
 
   const handleScan = async (detectedCodes: any[]) => {
       if (detectedCodes.length > 0) {
@@ -120,31 +144,58 @@ export function HistoryModal({ isOpen, onClose, tickets }: HistoryModalProps) {
           {displayedTickets.length === 0 ? (
             <div className="history-empty">No hay tickets cerrados</div>
           ) : (
-            displayedTickets.map((ticket) => (
-              <div key={ticket.id} className="history-item">
-                <div className="history-item-header">
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span className="history-time">{formatDate(ticket.timestamp)}</span>
-                    {ticket.type === 'B' && (
-                      <span style={{ fontSize: '10px', color: '#b00020', fontWeight: 'bold' }}>TIQUET B</span>
-                    )}
-                    {ticket.type === 'A' && (
-                      <span style={{ fontSize: '10px', color: '#1976d2', fontWeight: 'bold' }}>TIQUET A</span>
-                    )}
+            sortedDates.map((date) => (
+              <div key={date} className="history-date-group">
+                <div 
+                  className="history-date-header"
+                  onClick={() => toggleDate(date)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 10px',
+                    backgroundColor: '#f5f5f5',
+                    borderBottom: '1px solid #e0e0e0',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    userSelect: 'none'
+                  }}
+                >
+                  <span style={{ fontSize: '14px', color: '#333' }}>{date}</span>
+                  {expandedDates[date] ? <ChevronDown size={20} color="#666" /> : <ChevronRight size={20} color="#666" />}
+                </div>
+                
+                {expandedDates[date] && (
+                  <div className="history-date-content">
+                    {ticketsByDate[date].map((ticket) => (
+                      <div key={ticket.id} className="history-item">
+                        <div className="history-item-header">
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span className="history-time">{formatTime(ticket.timestamp)}</span>
+                            {ticket.type === 'B' && (
+                              <span style={{ fontSize: '10px', color: '#b00020', fontWeight: 'bold' }}>TIQUET B</span>
+                            )}
+                            {ticket.type === 'A' && (
+                              <span style={{ fontSize: '10px', color: '#1976d2', fontWeight: 'bold' }}>TIQUET A</span>
+                            )}
+                          </div>
+                          <span className="history-total">${formatMoney(ticket.total)}</span>
+                        </div>
+                        <div className="history-item-details">
+                          {ticket.items.map((item, idx) => (
+                            <div key={idx} className="history-detail-row">
+                              <span>{item.name}</span>
+                              <span>
+                                {item.quantity.toFixed(item.unitType === 'weight' ? 3 : 0)} x{' '}
+                                {formatMoney(item.pricePerUnit)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <span className="history-total">${formatMoney(ticket.total)}</span>
-                </div>
-                <div className="history-item-details">
-                  {ticket.items.map((item, idx) => (
-                    <div key={idx} className="history-detail-row">
-                      <span>{item.name}</span>
-                      <span>
-                        {item.quantity.toFixed(item.unitType === 'weight' ? 3 : 0)} x{' '}
-                        {formatMoney(item.pricePerUnit)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                )}
               </div>
             ))
           )}

@@ -180,9 +180,43 @@ export const categories: Category[] = [
     id: 'bolsones',
     label: 'BOLSONES',
     products: [
-      { id: 'bolson-n1', name: 'BOLSON N1', pricePerUnit: 15000, unitType: 'unit' },
-      { id: 'bolson-n2', name: 'BOLSON N2', pricePerUnit: 18500, unitType: 'unit' },
-      { id: 'bolson-n3', name: 'BOLSON N3', pricePerUnit: 22000, unitType: 'unit' },
+      { 
+        id: 'bolson-n1', 
+        name: 'BOLSON N1', 
+        pricePerUnit: 15000, 
+        unitType: 'unit',
+        composition: [
+          { productId: 'falda', quantity: 1 },
+          { productId: 'bocado-ancho', quantity: 1 },
+          { productId: 'chorizo-criollo', quantity: 1 },
+          { productId: 'aguja', quantity: 1 },
+        ]
+      },
+      { 
+        id: 'bolson-n2', 
+        name: 'BOLSON N2', 
+        pricePerUnit: 18500, 
+        unitType: 'unit',
+        composition: [
+          { productId: 'molida-especial', quantity: 1 },
+          { productId: 'osobuco', quantity: 1 },
+          { productId: 'costeleta-especial', quantity: 1 },
+          { productId: 'aguja', quantity: 1 },
+        ]
+      },
+      { 
+        id: 'bolson-n3', 
+        name: 'BOLSON N3', 
+        pricePerUnit: 22000, 
+        unitType: 'unit',
+        composition: [
+          { productId: 'corazon', quantity: 1 },
+          { productId: 'aguja', quantity: 1 },
+          { productId: 'rinon', quantity: 1 },
+          { productId: 'chorizo-criollo', quantity: 1 },
+          { productId: 'chinchulin', quantity: 1 },
+        ]
+      },
       { id: 'bolson-n4', name: 'BOLSON N4', pricePerUnit: 25500, unitType: 'unit' },
       { id: 'bolson-n5', name: 'BOLSON N5', pricePerUnit: 28000, unitType: 'unit' },
       { id: 'bolson-n6', name: 'BOLSON N6', pricePerUnit: 32000, unitType: 'unit' },

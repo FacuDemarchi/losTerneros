@@ -6,6 +6,11 @@ export type Store = {
 
 export type UnitType = 'weight' | 'unit'
 
+export type CompositionItem = {
+  productId: string
+  quantity: number
+}
+
 export type Product = {
   id: string
   externalId?: string
@@ -13,6 +18,7 @@ export type Product = {
   pricePerUnit: number
   unitType: UnitType
   disabled?: boolean
+  composition?: CompositionItem[]
 }
 
 export type Category = {
