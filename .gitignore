@@ -30,3 +30,6 @@ backend/passwords.txt
 
 # Handover
 visor-handover/
+
+# Scripts locales
+sync-prices.js

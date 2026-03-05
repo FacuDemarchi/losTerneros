@@ -1,5 +1,7 @@
 const { pool } = require('../config/db');
 const os = require('os');
+const fs = require('fs');
+const path = require('path');
 
 // Helper para IP local (copiado de index.js original, útil para la respuesta de config)
 function getLocalIp() {
@@ -16,6 +18,33 @@ function getLocalIp() {
 
 const LOCAL_IP = getLocalIp();
 const PORT = process.env.PORT || 3001;
+
+// Función para intentar guardar en archivo local si existe (Dev Mode)
+const trySaveToLocalFile = (categories) => {
+    // Intentamos buscar el archivo relativo a donde se ejecuta el backend
+    // Backend corre en /backend, el archivo está en ../src/data/products.ts
+    const targetPath = path.join(__dirname, '..', '..', '..', 'src', 'data', 'products.ts');
+    
+    if (fs.existsSync(targetPath)) {
+        console.log('📝 Detectado entorno local. Actualizando archivo products.ts...');
+        try {
+            const jsonContent = JSON.stringify(categories, null, 2);
+            // Convertir claves sin comillas a con comillas para que sea JSON válido dentro del TS
+            // (aunque JSON.stringify ya pone comillas, el formato TS del usuario espera un objeto JS)
+            // Pero como es TS, podemos exportar el JSON directamente si ajustamos la sintaxis.
+            
+            // Para mantener consistencia con el formato original:
+            const fileContent = `import type { Category } from '../types'
+
+export const categories: Category[] = ${jsonContent}
+`;
+            fs.writeFileSync(targetPath, fileContent, 'utf8');
+            console.log('✅ Archivo products.ts actualizado correctamente.');
+        } catch (e) {
+            console.error('❌ Error escribiendo archivo local:', e);
+        }
+    }
+};
 
 const getConfig = async (req, res) => {
   const { storeId, userId } = req.query;
@@ -116,6 +145,11 @@ const saveConfig = async (req, res) => {
                 ON CONFLICT(key) DO UPDATE SET value = excluded.value
               `, [configKey, jsonVal]);
               
+              // Intentar guardar en archivo local si es la config global (sin storeId)
+              if (!storeId) {
+                  trySaveToLocalFile(updatedCategories);
+              }
+              
               const io = req.app.get('io');
               if (io) io.emit('config_updated', { categories: updatedCategories, storeId });
               
@@ -136,6 +170,11 @@ const saveConfig = async (req, res) => {
       INSERT INTO app_config (key, value) VALUES ($1, $2)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value
     `, [configKey, jsonVal]);
+
+    // Intentar guardar en archivo local si es la config global (sin storeId)
+    if (!storeId) {
+        trySaveToLocalFile(categories);
+    }
 
     const io = req.app.get('io');
     if (io) {
