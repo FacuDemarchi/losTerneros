@@ -23,13 +23,22 @@ const login = async (req, res) => {
     if (envCashierKey) {
         const cashierName = envCashierKey.replace('CASHIER_HASH_', '');
         console.log(`🔑 Login exitoso: Cajero ENV ${cashierName}`);
+        
+        // Verificar si existe una restricción de local para este cajero de ENV
+        // Formato esperado: CASHIER_STORE_<NOMBRE> = "uuid-del-store"
+        const storeKey = `CASHIER_STORE_${cashierName}`;
+        const allowedStoreId = process.env[storeKey];
+
         return res.json({ 
             success: true, 
             role: 'cashier', 
             token: `session-cashier-${cashierName}`,
             userId: `env-${cashierName}`,
             username: cashierName,
-            permissions: { allowedCategories: ['*'] } // Acceso total por defecto para cajeros de ENV
+            permissions: { 
+                allowedCategories: ['*'],
+                allowedStoreId: allowedStoreId // undefined si no está configurada
+            } 
         });
     }
 
