@@ -19,6 +19,7 @@ export type Product = {
   unitType: UnitType
   disabled?: boolean
   composition?: CompositionItem[]
+  compositionDiscount?: number // Descuento fijo en $
 }
 
 export type Category = {

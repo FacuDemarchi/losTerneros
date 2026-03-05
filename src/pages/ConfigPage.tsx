@@ -24,7 +24,8 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
   const [showUserManagement, setShowUserManagement] = useState(false)
   const [users, setUsers] = useState<any[]>([])
   const [editingUser, setEditingUser] = useState<any | null>(null)
-  const [userForm, setUserForm] = useState({ username: '', allowedCategories: [] as string[] })
+  const [userForm, setUserForm] = useState({ username: '', allowedCategories: [] as string[], allowedStoreId: '' })
+
 
   const [stores, setStores] = useState<Store[]>([])
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(localStorage.getItem('selected-store-id'))
@@ -50,14 +51,30 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
     ? categories.filter(cat => permissions?.allowedCategories?.includes('*') || permissions?.allowedCategories?.includes(cat.id))
     : categories;
 
+  // Asegurar que la categoría seleccionada sea visible para el usuario actual
+  useEffect(() => {
+    if (visibleCategories.length > 0) {
+      // Si no hay seleccionada o la seleccionada no es visible
+      if (!selectedCategoryId || !visibleCategories.find(c => c.id === selectedCategoryId)) {
+        setSelectedCategoryId(visibleCategories[0].id)
+      }
+    } else if (categories.length > 0 && role === 'cashier') {
+       // Si hay categorías pero ninguna permitida, limpiar selección
+       setSelectedCategoryId(undefined)
+    }
+  }, [visibleCategories, selectedCategoryId, role])
+
   const allProducts = categories.flatMap(c => c.products)
 
-  function calculateBolsónPrice(composition: Product['composition'], products: Product[]) {
+  function calculateBolsónPrice(composition: Product['composition'], products: Product[], discount: number = 0) {
     if (!composition) return 0
-    return composition.reduce((total, item) => {
+    const subtotal = composition.reduce((total, item) => {
       const compProduct = products.find(p => p.id === item.productId)
       return total + (compProduct ? compProduct.pricePerUnit * item.quantity : 0)
     }, 0)
+    
+    // Aplicar descuento fijo
+    return Math.max(0, subtotal - discount)
   }
 
   function updateAllBolsonesPrices(allCats: Category[]): Category[] {
@@ -66,7 +83,7 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
       ...c,
       products: c.products.map(p => {
         if (p.composition) {
-          return { ...p, pricePerUnit: calculateBolsónPrice(p.composition, allProds) }
+          return { ...p, pricePerUnit: calculateBolsónPrice(p.composition, allProds, p.compositionDiscount) }
         }
         return p
       })
@@ -76,14 +93,33 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
   // Cargar locales al autenticar
   useEffect(() => {
     if (isAuthenticated) {
-      api.getStores().then(setStores)
-      
-      // Si hay un local seleccionado, cargar su config
-      if (selectedStoreId) {
-        handleSelectStore(selectedStoreId)
-      }
+      api.getStores().then((fetchedStores) => {
+        // Filtrar locales si el cajero tiene restricción de local
+        const allowedStoreId = permissions?.allowedStoreId;
+        const visibleStores = (role === 'cashier' && allowedStoreId)
+          ? fetchedStores.filter(s => s.id === allowedStoreId)
+          : fetchedStores;
+        
+        setStores(visibleStores);
+
+        // Si hay un local seleccionado, cargar su config
+        // Pero si hay restricción, forzar la selección del permitido
+        if (role === 'cashier' && allowedStoreId) {
+             handleSelectStore(allowedStoreId);
+        } else if (selectedStoreId) {
+            // Verificar si el seleccionado sigue siendo válido (visible)
+            if (visibleStores.find(s => s.id === selectedStoreId)) {
+                handleSelectStore(selectedStoreId)
+            } else if (visibleStores.length > 0) {
+                // Si no es válido, seleccionar el primero visible
+                handleSelectStore(visibleStores[0].id)
+            }
+        }
+      })
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated]) // Dependencia original, pero usamos valores de refs/closure o estado actualizado si fuera necesario. 
+  // Nota: Al usar isAuthenticated, permissions y role deben estar listos.
+  // Como permissions se setea justo antes de isAuthenticated=true en handleLogin, debería funcionar.
 
   async function handleSelectStore(storeId: string) {
     setIsConfigLoading(true)
@@ -345,12 +381,15 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
         id: editingUser?.id,
         username: userForm.username.trim(),
         role: 'cashier',
-        permissions: { allowedCategories: ['*'] } // Simplificado: Acceso total por defecto
+        permissions: { 
+          allowedCategories: userForm.allowedCategories,
+          allowedStoreId: userForm.allowedStoreId || undefined 
+        }
     }
     const result = await api.saveUser(userData)
     if (result.success) {
         setEditingUser(null)
-        setUserForm({ username: '', allowedCategories: [] })
+        setUserForm({ username: '', allowedCategories: [], allowedStoreId: '' })
         loadUsers()
     } else {
         alert(result.error || 'Error al guardar usuario')
@@ -384,15 +423,23 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
     onUpdateCategories(newCategories)
   }
 
-  function handleCompositionChange(productId: string, newComposition: Product['composition']) {
+  function handleCompositionChange(productId: string, newComposition: Product['composition'], newDiscount?: number) {
     if (role !== 'admin') return // Solo Admin puede modificar composición
     if (!selectedCategory) return
 
+    const product = selectedCategory.products.find(p => p.id === productId)
+    const discount = newDiscount !== undefined ? newDiscount : (product?.compositionDiscount || 0)
+
     const allProds = categories.flatMap(c => c.products)
-    const newPrice = calculateBolsónPrice(newComposition, allProds)
+    const newPrice = calculateBolsónPrice(newComposition, allProds, discount)
 
     const updatedProducts = selectedCategory.products.map(p => 
-      p.id === productId ? { ...p, composition: newComposition, pricePerUnit: newPrice } : p
+      p.id === productId ? { 
+        ...p, 
+        composition: newComposition, 
+        compositionDiscount: discount,
+        pricePerUnit: newPrice 
+      } : p
     )
 
     onUpdateCategory({
@@ -425,6 +472,9 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
     const bolsón = selectedCategory?.products.find(p => p.id === bolsónId)
     if (!bolsón) return
 
+    // Permitir cantidad 0 o valores intermedios (ej: borrando para escribir)
+    // Solo eliminamos si el usuario explícitamente usa el botón de borrar
+    
     const newComp = (bolsón.composition || []).map(c => 
       c.productId === componentId ? { ...c, quantity } : c
     )
@@ -799,7 +849,19 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
                       <td colSpan={6}>
                         <div className="composition-container">
                           <div className="composition-header">
-                            <h3>Composición del Bolsón</h3>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                              <h3>Composición del Bolsón</h3>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '14px' }}>
+                                   <span>Descuento ($):</span>
+                                   <DebouncedInput 
+                                     type="number" 
+                                     className="comp-qty-input"
+                                     style={{ width: '80px' }}
+                                     value={product.compositionDiscount || 0} 
+                                     onChangeValue={(val) => handleCompositionChange(product.id, product.composition || [], Number(val))}
+                                   />
+                                 </div>
+                            </div>
                             <div className="add-component-search">
                               <div className="search-input-wrapper">
                                 <Search size={14} className="search-icon"/>
@@ -845,9 +907,10 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
                                       <input 
                                         type="number" 
                                         className="comp-qty-input"
-                                        value={comp.quantity} 
+                                        value={comp.quantity === 0 ? '' : comp.quantity} 
                                         onChange={(e) => updateComponentQuantity(product.id, comp.productId, Number(e.target.value))}
                                         step="0.01"
+                                        min="0"
                                       />
                                     </td>
                                     <td style={{ textAlign: 'right' }}>${compProd?.pricePerUnit || 0}</td>
@@ -917,7 +980,8 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
                           setEditingUser(u)
                           setUserForm({ 
                             username: u.username, 
-                            allowedCategories: u.permissions?.allowedCategories || []
+                            allowedCategories: u.permissions?.allowedCategories || [],
+                            allowedStoreId: u.permissions?.allowedStoreId || ''
                           })
                         }} title="Editar">
                           <Edit2 size={14} />
@@ -932,7 +996,7 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
                 </div>
                 <button className="new-user-btn" onClick={() => {
                   setEditingUser(null)
-                  setUserForm({ username: '', allowedCategories: [] })
+                  setUserForm({ username: '', allowedCategories: [], allowedStoreId: '' })
                 }}>
                   <Plus size={14} /> Nuevo Cajero
                 </button>
@@ -956,8 +1020,68 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
                     </p>
                   </div>
                   
-                  {/* Se han eliminado los permisos de categorías para simplificar */}
-                  <input type="hidden" value={JSON.stringify(userForm.allowedCategories)} />
+                  <div className="form-group">
+                     <label>Local Asignado</label>
+                     <div className="store-pills-container" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' }}>
+                       <button
+                         className={`store-pill-btn ${!userForm.allowedStoreId ? 'active' : ''}`}
+                         onClick={() => setUserForm({...userForm, allowedStoreId: ''})}
+                         style={{
+                           padding: '8px 12px',
+                           borderRadius: '20px',
+                           border: '1px solid #ccc',
+                           background: !userForm.allowedStoreId ? '#3498db' : '#f8f9fa',
+                           color: !userForm.allowedStoreId ? 'white' : '#333',
+                           cursor: 'pointer',
+                           fontSize: '13px'
+                         }}
+                       >
+                         Todos los locales
+                       </button>
+                       {stores.map(store => (
+                         <button
+                           key={store.id}
+                           className={`store-pill-btn ${userForm.allowedStoreId === store.id ? 'active' : ''}`}
+                           onClick={() => setUserForm({...userForm, allowedStoreId: store.id})}
+                           style={{
+                             padding: '8px 12px',
+                             borderRadius: '20px',
+                             border: '1px solid #ccc',
+                             background: userForm.allowedStoreId === store.id ? '#3498db' : '#f8f9fa',
+                             color: userForm.allowedStoreId === store.id ? 'white' : '#333',
+                             cursor: 'pointer',
+                             fontSize: '13px'
+                           }}
+                         >
+                           {store.name}
+                         </button>
+                       ))}
+                     </div>
+                     <p style={{ fontSize: '12px', color: '#888', marginTop: '8px' }}>
+                       Si seleccionas un local, el cajero solo podrá acceder a ese.
+                     </p>
+                   </div>
+                  
+                  <div className="form-group">
+                    <label>Categorías Permitidas</label>
+                    <div className="categories-checklist">
+                      {categories.map(cat => (
+                        <label key={cat.id} className="checklist-item">
+                          <input 
+                            type="checkbox"
+                            checked={userForm.allowedCategories.includes(cat.id)}
+                            onChange={e => {
+                              const newCats = e.target.checked
+                                ? [...userForm.allowedCategories, cat.id]
+                                : userForm.allowedCategories.filter(id => id !== cat.id)
+                              setUserForm({...userForm, allowedCategories: newCats})
+                            }}
+                          />
+                          <span>{cat.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
 
                   <div className="form-actions">
                     <button className="save-btn" onClick={handleSaveUser}>
