@@ -51,6 +51,14 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
     ? categories.filter(cat => permissions?.allowedCategories?.includes('*') || permissions?.allowedCategories?.includes(cat.id))
     : categories;
 
+  // Debugging para verificar permisos
+  useEffect(() => {
+    if (isAuthenticated && role === 'cashier') {
+        console.log('🔒 Permisos de Cajero:', permissions);
+        console.log('👀 Categorías Visibles:', visibleCategories.map(c => c.label));
+    }
+  }, [isAuthenticated, role, permissions, visibleCategories]);
+
   // Asegurar que la categoría seleccionada sea visible para el usuario actual
   useEffect(() => {
     if (visibleCategories.length > 0) {
@@ -64,7 +72,7 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
     }
   }, [visibleCategories, selectedCategoryId, role])
 
-  const allProducts = categories.flatMap(c => c.products)
+  const allProducts = visibleCategories.flatMap(c => c.products)
 
   function calculateBolsónPrice(composition: Product['composition'], products: Product[], discount: number = 0) {
     if (!composition) return 0
@@ -382,7 +390,8 @@ export function ConfigPage({ categories, onUpdateCategory, onUpdateCategories }:
         username: userForm.username.trim(),
         role: 'cashier',
         permissions: { 
-          allowedCategories: userForm.allowedCategories,
+          // Filtramos '*' para asegurar que solo se guarden las categorías seleccionadas explícitamente
+          allowedCategories: userForm.allowedCategories.filter(id => id !== '*'),
           allowedStoreId: userForm.allowedStoreId || undefined 
         }
     }

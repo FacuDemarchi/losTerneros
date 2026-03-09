@@ -15,7 +15,27 @@ const login = async (req, res) => {
         return res.json({ success: true, role: 'admin', token: 'session-admin' });
     }
 
-    // Login de cajeros definidos en variables de entorno (CASHIER_HASH_<NOMBRE>)
+    // 1. Intentar Login de usuarios (cajeros) por contraseña (hash) desde DB
+    try {
+        const result = await pool.query("SELECT * FROM app_users WHERE password_hash = $1", [hash]);
+        const user = result.rows[0];
+
+        if (user) {
+            console.log(`🔑 Login exitoso: Usuario ${user.username} (vía contraseña)`);
+            return res.json({ 
+                success: true, 
+                role: user.role, 
+                token: user.id, // Usamos ID como token simple por ahora
+                userId: user.id,
+                username: user.username,
+                permissions: user.permissions ? JSON.parse(user.permissions) : {}
+            });
+        }
+    } catch (err) {
+        console.error('Error en login de usuario:', err);
+    }
+
+    // 2. Si no está en DB, intentar Login de cajeros definidos en variables de entorno (CASHIER_HASH_<NOMBRE>)
     const envCashierKey = Object.keys(process.env).find(key => 
         key.startsWith('CASHIER_HASH_') && process.env[key] === hash
     );
@@ -40,26 +60,6 @@ const login = async (req, res) => {
                 allowedStoreId: allowedStoreId // undefined si no está configurada
             } 
         });
-    }
-
-    // Login de usuarios (cajeros) por contraseña (hash)
-    try {
-        const result = await pool.query("SELECT * FROM app_users WHERE password_hash = $1", [hash]);
-        const user = result.rows[0];
-
-        if (user) {
-            console.log(`🔑 Login exitoso: Usuario ${user.username} (vía contraseña)`);
-            return res.json({ 
-                success: true, 
-                role: user.role, 
-                token: user.id, // Usamos ID como token simple por ahora
-                userId: user.id,
-                username: user.username,
-                permissions: user.permissions ? JSON.parse(user.permissions) : {}
-            });
-        }
-    } catch (err) {
-        console.error('Error en login de usuario:', err);
     }
 
     console.warn('⛔ Intento de login fallido');
