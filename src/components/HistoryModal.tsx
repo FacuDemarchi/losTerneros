@@ -4,6 +4,7 @@ import { QrCode, X, ChevronDown, ChevronRight } from 'lucide-react'
 import { Scanner } from '@yudiel/react-qr-scanner'
 import { api } from '../services/api'
 import { formatMoney, formatDate, formatTime } from '../utils/format'
+import { ErrorBoundary } from './ErrorBoundary'
 
 type HistoryModalProps = {
   isOpen: boolean
@@ -11,7 +12,7 @@ type HistoryModalProps = {
   tickets: ClosedTicket[]
 }
 
-export function HistoryModal({ isOpen, onClose, tickets }: HistoryModalProps) {
+function HistoryModalContent({ isOpen, onClose, tickets }: HistoryModalProps) {
   const [filterMode, setFilterMode] = useState<'all' | 'A' | 'B'>('all')
   const [isScanning, setIsScanning] = useState(false)
   const [syncMessage, setSyncMessage] = useState('')
@@ -29,32 +30,62 @@ export function HistoryModal({ isOpen, onClose, tickets }: HistoryModalProps) {
 
   if (!isOpen) return null
 
-  const displayedTickets = tickets.filter((t) => {
+  // Ensure tickets is an array before processing
+  const safeTickets = useMemo(() => {
+    if (!Array.isArray(tickets)) return []
+    return tickets.filter(t => t && typeof t === 'object' && t.id && Array.isArray(t.items))
+  }, [tickets])
+
+  const displayedTickets = safeTickets.filter((t) => {
     if (filterMode === 'all') return true
     return t.type === filterMode
   })
 
   const ticketsByDate = useMemo(() => {
     const groups: Record<string, ClosedTicket[]> = {}
-    displayedTickets.forEach(ticket => {
-      const date = formatDate(ticket.timestamp)
-      if (!groups[date]) {
-        groups[date] = []
-      }
-      groups[date].push(ticket)
-    })
+    try {
+      displayedTickets.forEach(ticket => {
+        // Use fallback if timestamp is invalid or missing
+        let date = 'Fecha desconocida'
+        try {
+            date = ticket.timestamp ? formatDate(ticket.timestamp) : 'Fecha desconocida'
+        } catch (e) {
+            console.error("Error formatting date for ticket", ticket.id, e)
+        }
+        
+        if (!groups[date]) {
+          groups[date] = []
+        }
+        groups[date].push(ticket)
+      })
+    } catch (e) {
+        console.error("Error grouping tickets", e)
+    }
     return groups
   }, [displayedTickets])
 
   const sortedDates = useMemo(() => {
     return Object.keys(ticketsByDate).sort((a, b) => {
-      const [dayA, monthA, yearA] = a.split('/').map(Number)
-      const [dayB, monthB, yearB] = b.split('/').map(Number)
-      return new Date(yearB, monthB - 1, dayB).getTime() - new Date(yearA, monthA - 1, dayA).getTime()
+      if (a === 'Fecha desconocida') return 1
+      if (b === 'Fecha desconocida') return -1
+      if (a === 'Fecha inválida') return 1
+      if (b === 'Fecha inválida') return -1
+
+      try {
+        const partsA = a.split('/')
+        const partsB = b.split('/')
+        if (partsA.length !== 3 || partsB.length !== 3) return 0
+
+        const [dayA, monthA, yearA] = partsA.map(Number)
+        const [dayB, monthB, yearB] = partsB.map(Number)
+        return new Date(yearB, monthB - 1, dayB).getTime() - new Date(yearA, monthA - 1, dayA).getTime()
+      } catch {
+        return 0
+      }
     })
   }, [ticketsByDate])
 
-  const totalDay = displayedTickets.reduce((sum, t) => sum + t.total, 0)
+  const totalDay = displayedTickets.reduce((sum, t) => sum + (t.total || 0), 0)
 
   const toggleDate = (date: string) => {
     setExpandedDates(prev => ({
@@ -179,18 +210,22 @@ export function HistoryModal({ isOpen, onClose, tickets }: HistoryModalProps) {
                               <span style={{ fontSize: '10px', color: '#1976d2', fontWeight: 'bold' }}>TIQUET A</span>
                             )}
                           </div>
-                          <span className="history-total">${formatMoney(ticket.total)}</span>
+                          <span className="history-total">${formatMoney(ticket.total || 0)}</span>
                         </div>
                         <div className="history-item-details">
-                          {ticket.items.map((item, idx) => (
-                            <div key={idx} className="history-detail-row">
-                              <span>{item.name}</span>
-                              <span>
-                                {item.quantity.toFixed(item.unitType === 'weight' ? 3 : 0)} x{' '}
-                                {formatMoney(item.pricePerUnit)}
-                              </span>
-                            </div>
-                          ))}
+                          {Array.isArray(ticket.items) && ticket.items.map((item, idx) => {
+                            // Skip invalid items
+                            if (!item) return null
+                            return (
+                              <div key={idx} className="history-detail-row">
+                                <span>{item.name || 'Producto desconocido'}</span>
+                                <span>
+                                  {(item.quantity || 0).toFixed(item.unitType === 'weight' ? 3 : 0)} x{' '}
+                                  {formatMoney(item.pricePerUnit || 0)}
+                                </span>
+                              </div>
+                            )
+                          })}
                         </div>
                       </div>
                     ))}
@@ -207,4 +242,35 @@ export function HistoryModal({ isOpen, onClose, tickets }: HistoryModalProps) {
       </div>
     </div>
   )
+}
+
+export function HistoryModal(props: HistoryModalProps) {
+    if (!props.isOpen) return null;
+
+    return (
+        <ErrorBoundary fallback={
+            <div className="history-modal-overlay" onClick={props.onClose}>
+                <div className="history-modal-content" onClick={(e) => e.stopPropagation()} style={{ padding: '20px', justifyContent: 'center', alignItems: 'center' }}>
+                    <h2 style={{ color: 'red' }}>Error al cargar historial</h2>
+                    <p>Se detectó un problema con los datos guardados.</p>
+                    <button onClick={() => {
+                        // Intentar limpiar solo los datos corruptos si fuera posible, pero por seguridad limpiamos la key
+                        try {
+                            localStorage.removeItem('pos-closed-tickets');
+                            window.location.reload();
+                        } catch(e) {
+                            alert('No se pudo limpiar el almacenamiento automáticamente.')
+                        }
+                    }} style={{ marginTop: '20px', padding: '10px', background: '#d32f2f', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                        Borrar Historial Corrupto y Recargar
+                    </button>
+                    <button onClick={props.onClose} style={{ marginTop: '10px', padding: '10px', cursor: 'pointer' }}>
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        }>
+            <HistoryModalContent {...props} />
+        </ErrorBoundary>
+    )
 }

@@ -281,7 +281,7 @@ export function POSPage({ categories, isOffline }: POSPageProps) {
       <HistoryModal
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
-        tickets={closedTickets}
+        tickets={closedTickets || []}
       />
 
       <WeightInputModal

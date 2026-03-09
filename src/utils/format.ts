@@ -6,17 +6,29 @@ export function formatMoney(value: number) {
 }
 
 export function formatDate(timestamp: number) {
-  return new Date(timestamp).toLocaleDateString('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
+  try {
+    const date = new Date(timestamp)
+    if (isNaN(date.getTime())) return 'Fecha inválida'
+    return date.toLocaleDateString('es-AR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    })
+  } catch {
+    return 'Fecha inválida'
+  }
 }
 
 export function formatTime(timestamp: number) {
-  return new Date(timestamp).toLocaleTimeString('es-AR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })
+  try {
+    const date = new Date(timestamp)
+    if (isNaN(date.getTime())) return '--:--'
+    return date.toLocaleTimeString('es-AR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+  } catch {
+    return '--:--'
+  }
 }
