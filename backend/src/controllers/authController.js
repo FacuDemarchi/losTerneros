@@ -30,12 +30,18 @@ const login = async (req, res) => {
                 username: user.username,
                 permissions: user.permissions ? JSON.parse(user.permissions) : {}
             });
+        } else {
+            console.log(`❌ Usuario no encontrado en DB con hash: ${hash}`);
         }
     } catch (err) {
         console.error('Error en login de usuario:', err);
+        // Retornar error específico para debug
+        return res.status(500).json({ error: 'Database error during login: ' + err.message });
     }
 
     // 2. Si no está en DB, intentar Login de cajeros definidos en variables de entorno (CASHIER_HASH_<NOMBRE>)
+    // DESHABILITADO: Se comenta para forzar el uso de la base de datos y evitar permisos totales accidentales
+    /*
     const envCashierKey = Object.keys(process.env).find(key => 
         key.startsWith('CASHIER_HASH_') && process.env[key] === hash
     );
@@ -61,6 +67,7 @@ const login = async (req, res) => {
             } 
         });
     }
+    */
 
     console.warn('⛔ Intento de login fallido');
     res.status(401).json({ error: 'Credenciales incorrectas' });
